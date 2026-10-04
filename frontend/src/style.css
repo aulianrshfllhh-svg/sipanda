@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-sans;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* A4 Document Canvas Styling */
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  margin: 24px auto;
+  background: #ffffff;
+  /* Enhanced realistic physical paper drop shadow with crisp boundary */
+  box-shadow: 
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 10px 25px -5px rgba(15, 23, 42, 0.16),
+    0 20px 48px -10px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(15, 23, 42, 0.07);
+  border-radius: 2px;
+  position: relative;
+  box-sizing: border-box;
+  font-family: 'Bookman Old Style', 'Times New Roman', Georgia, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  color: #111827;
+}
+
+.a4-page.a4-landscape {
+  page: a4-landscape;
+  width: 297mm;
+  min-height: 210mm;
+  padding: 20mm;
+}
+
+@page a4-landscape {
+  size: A4 landscape;
+  margin: 0;
+}
+
+/* Page break styling in print */
+@media print {
+  body {
+    background: transparent !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .a4-page {
+    margin: 0 !important;
+    padding: 20mm !important;
+    box-shadow: none !important;
+    page-break-after: always;
+    break-after: page;
+    width: 100% !important;
+    min-height: 100% !important;
+  }
+  .a4-page.a4-landscape {
+    page: a4-landscape;
+    padding: 20mm !important;
+  }
+}
+
+/* ProseMirror / TipTap Document Elements */
+.ProseMirror {
+  outline: none;
+  min-height: 100px;
+}
+
+.ProseMirror p {
+  margin-bottom: 0.75rem;
+  text-align: justify;
+  text-indent: 1.25cm; /* standard paragraph indent */
+}
+
+.ProseMirror p.no-indent {
+  text-indent: 0 !important;
+}
+
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4 {
+  font-family: 'Bookman Old Style', 'Times New Roman', Georgia, serif;
+  font-weight: bold;
+  color: #0f172a;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: auto;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  min-width: 1em;
+  border: 1px solid #334155;
+  padding: 6px 8px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+  position: relative;
+  font-size: 11pt;
+}
+
+.ProseMirror table th {
+  font-weight: bold;
+  text-align: center;
+  background-color: #f1f5f9;
+}
+
+.ProseMirror table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75rem auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 2px;
+}
+
+/* Caption styling */
+.doc-caption {
+  font-size: 10.5pt;
+  font-style: italic;
+  text-align: center;
+  color: #334155;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+/* Locked Template Header Tag */
+.locked-heading {
+  user-select: none;
+  background: #f8fafc;
+  border-left: 3px solid #2563eb;
+  padding: 6px 10px;
+  margin: 14px 0 8px 0;
+  font-weight: 700;
+  border-radius: 0 4px 4px 0;
+}
+
+.a4-page.editor-landscape { width: 297mm; min-height: 210mm; padding: 20mm; }

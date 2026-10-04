@@ -1,0 +1,40 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.48.0",
+    "@tiptap/extension-image": "^3.31.3",
+    "@tiptap/extension-table": "^3.31.3",
+    "@tiptap/extension-table-cell": "^3.31.3",
+    "@tiptap/extension-table-header": "^3.31.3",
+    "@tiptap/extension-table-row": "^3.31.3",
+    "@tiptap/extension-text-align": "^3.31.3",
+    "@tiptap/extension-underline": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "@tiptap/vue-3": "^3.31.3",
+    "docx": "^9.8.1",
+    "file-saver": "^2.0.5",
+    "lucide-vue-next": "^1.0.0",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.42",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vue-tsc": "^3.3.11"
+  }
+}

@@ -1,0 +1,91 @@
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vite.config.ts:10:25). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+[2m18.01.21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/annexes?opdId=kec-depok&jenis=Lampiran+Perbup+Renja[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m21.58.08[22m [31m[1m[vite][22m[39m [31mInternal server error: Element is missing end tag.[39m
+  Plugin: [35mvite:vue[39m
+  File: [36mD:/SIPANDA1/SIPANDA/frontend/src/components/editor/DocumentEditor.vue[39m:540:5
+[33m  538 |      </div>
+  539 |  
+  540 |      <section v-else-if="currentDoc?.cara === 'upload'" class="flex min-h-0 flex-1 bg-slate-100">
+      |       ^
+  541 |        <div class="flex min-w-0 flex-1 flex-col">
+  542 |          <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-...[39m
+      at createCompilerError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1378:17)
+      at emitError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3035:5)
+      at Object.onclosetag (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:2402:13)
+      at Tokenizer.stateInClosingTagName (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:799:16)
+      at Tokenizer.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1157:16)
+      at Object.baseParse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3074:13)
+      at Object.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-dom\dist\compiler-dom.cjs.js:913:23)
+      at Object.parse$1 [as parse] (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-sfc\dist\compiler-sfc.cjs.js:1918:24)
+      at createDescriptor (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:50:42)
+      at handleHotUpdate (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:1202:25)
+[2m21.58.39[22m [31m[1m[vite][22m[39m [31mInternal server error: Element is missing end tag.[39m
+  Plugin: [35mvite:vue[39m
+  File: [36mD:/SIPANDA1/SIPANDA/frontend/src/components/editor/DocumentEditor.vue[39m:540:5
+[33m  538 |      </div>
+  539 |  
+  540 |      <section v-else-if="currentDoc?.cara === 'upload'" class="flex min-h-0 flex-1 bg-slate-100">
+      |       ^
+  541 |        <div class="flex min-w-0 flex-1 flex-col">
+  542 |          <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-...[39m
+      at createCompilerError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1378:17)
+      at emitError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3035:5)
+      at Object.onclosetag (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:2402:13)
+      at Tokenizer.stateInClosingTagName (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:799:16)
+      at Tokenizer.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1157:16)
+      at Object.baseParse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3074:13)
+      at Object.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-dom\dist\compiler-dom.cjs.js:913:23)
+      at Object.parse$1 [as parse] (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-sfc\dist\compiler-sfc.cjs.js:1918:24)
+      at createDescriptor (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:50:42)
+      at handleHotUpdate (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:1202:25)
+[2m21.59.26[22m [31m[1m[vite][22m[39m [31mInternal server error: Element is missing end tag.[39m
+  Plugin: [35mvite:vue[39m
+  File: [36mD:/SIPANDA1/SIPANDA/frontend/src/components/editor/DocumentEditor.vue[39m:540:5
+[33m  538 |      </div>
+  539 |  
+  540 |      <section v-else-if="currentDoc?.cara === 'upload'" class="flex min-h-0 flex-1 flex-col bg-slate-100 lg:flex-row">
+      |       ^
+  541 |        <div class="flex min-h-[55vh] min-w-0 flex-1 flex-col">
+  542 |          <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-...[39m
+      at createCompilerError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1378:17)
+      at emitError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3035:5)
+      at Object.onclosetag (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:2402:13)
+      at Tokenizer.stateInClosingTagName (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:799:16)
+      at Tokenizer.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1157:16)
+      at Object.baseParse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3074:13)
+      at Object.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-dom\dist\compiler-dom.cjs.js:913:23)
+      at Object.parse$1 [as parse] (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-sfc\dist\compiler-sfc.cjs.js:1918:24)
+      at createDescriptor (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:50:42)
+      at handleHotUpdate (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:1202:25)
+[2m21.59.48[22m [31m[1m[vite][22m[39m [31mInternal server error: Element is missing end tag.[39m
+  Plugin: [35mvite:vue[39m
+  File: [36mD:/SIPANDA1/SIPANDA/frontend/src/components/editor/DocumentEditor.vue[39m:540:5
+[33m  538 |      </div>
+  539 |  
+  540 |      <section v-else-if="currentDoc?.cara === 'upload'" class="flex min-h-0 flex-1 flex-col bg-slate-100 lg:flex-row">
+      |       ^
+  541 |        <div class="flex min-h-[55vh] min-w-0 flex-1 flex-col">
+  542 |          <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-...[39m
+      at createCompilerError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1378:17)
+      at emitError (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3035:5)
+      at Object.onclosetag (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:2402:13)
+      at Tokenizer.stateInClosingTagName (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:799:16)
+      at Tokenizer.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:1157:16)
+      at Object.baseParse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-core\dist\compiler-core.cjs.js:3074:13)
+      at Object.parse (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-dom\dist\compiler-dom.cjs.js:913:23)
+      at Object.parse$1 [as parse] (D:\SIPANDA1\SIPANDA\frontend\node_modules\@vue\compiler-sfc\dist\compiler-sfc.cjs.js:1918:24)
+      at createDescriptor (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:50:42)
+      at handleHotUpdate (file:///D:/SIPANDA1/SIPANDA/frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs:1202:25)
+[2m23.01.39[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/monitoring/archives?tahun=2026&status=Disetujui[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m23.01.40[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/monitoring/archives?tahun=2026&status=Disetujui[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)

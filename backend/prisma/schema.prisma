@@ -1,0 +1,320 @@
+// SIPANDA — Sistem Informasi Perencanaan Daerah
+// Prisma Schema — MySQL (XAMPP / phpMyAdmin)
+// Bapperida Kabupaten Cirebon
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// 1. ROLES & USERS
+// ─────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  kode        String   @unique @db.VarChar(50)
+  label       String   @db.VarChar(100)
+  deskripsi   String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique @db.VarChar(100)
+  password    String   @db.VarChar(255)
+  nama        String   @db.VarChar(150)
+  nip         String?  @db.VarChar(30)
+  jabatan     String?  @db.VarChar(200)
+  singkatan   String?  @db.VarChar(50)
+  avatar      String?  @db.VarChar(255)
+  opdId       String?  @map("opd_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  opd                    Opd?                    @relation(fields: [opdId], references: [id])
+  roles                  UserRole[]
+  penugasanVerifikasi    PenugasanVerifikasi[]
+  penugasanBabRkpd       PenugasanBabRkpd[]
+  penugasanLog           PenugasanLog[]
+  documents              Document[]              @relation("DocumentCreator")
+  verifications          Verification[]
+
+  @@map("users")
+}
+
+model UserRole {
+  userId    String @map("user_id")
+  roleId    String @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ─────────────────────────────────────────────
+// 2. OPD (Perangkat Daerah)
+// ─────────────────────────────────────────────
+
+model Opd {
+  id             String  @id @db.VarChar(100)
+  kode           String  @unique @db.VarChar(20)
+  nama           String  @db.VarChar(200)
+  singkatan      String  @db.VarChar(50)
+  kategori       String? @db.VarChar(50)
+  nomorUrut      Int     @map("nomor_urut")
+  nomorLampiran  String  @db.VarChar(20) @map("nomor_lampiran")
+  isActive       Boolean @default(true) @map("is_active")
+
+  users               User[]
+  documents           Document[]
+  penugasanVerifikasi PenugasanVerifikasi[]
+
+  @@map("opd")
+}
+
+// ─────────────────────────────────────────────
+// 3. PENUGASAN VERIFIKASI (staf → OPD)
+// ─────────────────────────────────────────────
+
+model PenugasanVerifikasi {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  opdId       String   @map("opd_id")
+  tahun       String   @db.VarChar(4)
+  keterangan  String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdBy   String?  @map("created_by")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opd  Opd  @relation(fields: [opdId], references: [id])
+
+  @@unique([userId, opdId, tahun])
+  @@map("penugasan_verifikasi")
+}
+
+// ─────────────────────────────────────────────
+// 4. PENUGASAN BAB RKPD
+// ─────────────────────────────────────────────
+
+model PenugasanBabRkpd {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  documentId  String   @map("document_id")
+  babId       String   @db.VarChar(50) @map("bab_id")
+  babTitle    String   @db.VarChar(200) @map("bab_title")
+  keterangan  String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId, babId])
+  @@map("penugasan_bab_rkpd")
+}
+
+// ─────────────────────────────────────────────
+// 5. LOG PENUGASAN
+// ─────────────────────────────────────────────
+
+model PenugasanLog {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  aksi        String   @db.VarChar(50)
+  target      String   @db.VarChar(200)
+  keterangan  String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("penugasan_log")
+}
+
+// ─────────────────────────────────────────────
+// 6. DOKUMEN
+// ─────────────────────────────────────────────
+
+model Document {
+  templateId            String? @map("template_id")
+  templateSnapshot      Json? @map("template_snapshot")
+  frontMatter           Json? @map("front_matter")
+  regulation            Json?
+
+  id                    String    @id @default(cuid())
+  kodeDoc               String    @unique @db.VarChar(50) @map("kode_doc")
+  nomorSurat            String?   @db.VarChar(100) @map("nomor_surat")
+  nomerRegistrasiArsip  String?   @db.VarChar(100) @map("nomer_registrasi_arsip")
+  jenis                 String    @db.VarChar(50)
+  tahun                 String    @db.VarChar(4)
+  judul                 String    @db.VarChar(300)
+  subJudul              String?   @db.VarChar(300) @map("sub_judul")
+  cara                  String    @default("template") @db.VarChar(20)
+  status                String    @default("Draft") @db.VarChar(50)
+  catatanRevisi         String?   @db.Text @map("catatan_revisi")
+  tteNumber             String?   @db.VarChar(100) @map("tte_number")
+  filePath              String?   @db.VarChar(255) @map("file_path")
+  fileName              String?   @db.VarChar(255) @map("file_name")
+  parentId              String?   @db.VarChar(100) @map("parent_id")
+  isLampiranOtomatis    Boolean   @default(false) @map("is_lampiran_otomatis")
+  opdId                 String    @map("opd_id")
+  opdName               String    @db.VarChar(200) @map("opd_name")
+  createdById           String?   @map("created_by_id")
+  verifierName          String?   @db.VarChar(150) @map("verifier_name")
+  verifierJabatan       String?   @db.VarChar(200) @map("verifier_jabatan")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  opd            Opd               @relation(fields: [opdId], references: [id])
+  createdBy      User?             @relation("DocumentCreator", fields: [createdById], references: [id])
+  sections       DocumentSection[]
+  versions       DocumentVersion[]
+  verifications  Verification[]
+  attachments    Attachment[]
+  penugasanBab   PenugasanBabRkpd[]
+  activities     ActivityLog[]
+
+  @@index([opdId])
+  @@index([jenis])
+  @@index([tahun])
+  @@index([status])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────
+// 7. SECTION DOKUMEN (BAB & SUB-BAB)
+// ─────────────────────────────────────────────
+
+model DocumentSection {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  babId       String   @db.VarChar(50) @map("bab_id")
+  babTitle    String   @db.VarChar(200) @map("bab_title")
+  babOrder    Int      @map("bab_order")
+  isLocked    Boolean  @default(true) @map("is_locked")
+  subsections Json
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, babId])
+  @@index([documentId])
+  @@map("document_sections")
+}
+
+// ─────────────────────────────────────────────
+// 8. VERSI DOKUMEN
+// ─────────────────────────────────────────────
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  versi       Int
+  sections    Json
+  savedBy     String?  @db.VarChar(150) @map("saved_by")
+  keterangan  String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+// ─────────────────────────────────────────────
+// 9. VERIFIKASI DOKUMEN
+// ─────────────────────────────────────────────
+
+model Verification {
+  id             String   @id @default(cuid())
+  documentId     String   @map("document_id")
+  verifierId     String   @map("verifier_id")
+  status         String   @db.VarChar(50)
+  catatanRevisi  String?  @db.Text @map("catatan_revisi")
+  tteNumber      String?  @db.VarChar(100) @map("tte_number")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id])
+  verifier User     @relation(fields: [verifierId], references: [id])
+
+  @@index([documentId])
+  @@map("verifications")
+}
+
+// ─────────────────────────────────────────────
+// 10. TEMPLATE DOKUMEN
+// ─────────────────────────────────────────────
+
+model Template {
+  tahun       String? @db.VarChar(4)
+  versi       Int @default(1)
+  isActive    Boolean @default(false) @map("is_active")
+
+  id          String   @id @default(cuid())
+  nama        String   @db.VarChar(150)
+  jenis       String   @db.VarChar(50)
+  deskripsi   String?  @db.Text
+  sections    Json
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("templates")
+}
+
+// ─────────────────────────────────────────────
+// 11. LAMPIRAN / ATTACHMENT
+// ─────────────────────────────────────────────
+
+model Attachment {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  namaFile    String   @db.VarChar(255) @map("nama_file")
+  filePath    String   @db.VarChar(255) @map("file_path")
+  mimeType    String?  @db.VarChar(100) @map("mime_type")
+  ukuranBytes Int?     @map("ukuran_bytes")
+  uploadedBy  String?  @db.VarChar(150) @map("uploaded_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+// ─────────────────────────────────────────────
+// 12. LOG AKTIVITAS
+// ─────────────────────────────────────────────
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  documentId  String?  @map("document_id")
+  docTitle    String   @db.VarChar(300) @map("doc_title")
+  detail      String   @db.Text
+  tag         String?  @db.VarChar(50)
+  badge       String?  @db.VarChar(50)
+  icon        String?  @db.VarChar(50)
+  color       String?  @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@map("activity_logs")
+}
+
+model DocumentSettings {
+  id String @id @db.VarChar(100)
+  data Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("document_settings")
+}

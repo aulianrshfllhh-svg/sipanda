@@ -1,0 +1,41 @@
+{
+  "name": "sipanda-backend",
+  "version": "1.0.0",
+  "description": "Backend API for SIPANDA Bapperida Kab. Cirebon",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:migrate": "npx prisma migrate dev",
+    "db:push": "npx prisma db push",
+    "db:seed": "npx prisma db seed",
+    "db:studio": "npx prisma studio",
+    "db:reset": "npx prisma migrate reset",
+    "db:seed-planning": "node seed-planning.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@prisma/client": "^6.19.0",
+    "@xmldom/xmldom": "^0.9.12",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "docx": "^9.2.0",
+    "dotenv": "^18.0.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "jszip": "^3.10.2",
+    "linkedom": "^0.18.13",
+    "mammoth": "^1.13.0",
+    "multer": "^1.4.5-lts.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
+    "prisma": "^6.19.0",
+    "puppeteer-core": "^25.12.0"
+  }
+}
