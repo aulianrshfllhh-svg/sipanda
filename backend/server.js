@@ -1254,6 +1254,9 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
+    if (doc.createdById === user.id) {
+      return res.status(403).json({ error: 'Penyusun dokumen tidak dapat menyetujui dokumennya sendiri' });
+    }
     if (doc.status !== 'Menunggu Verifikasi') {
       return res.status(400).json({ error: 'Hanya dokumen yang menunggu verifikasi dapat diputuskan' });
     }

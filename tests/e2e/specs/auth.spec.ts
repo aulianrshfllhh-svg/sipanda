@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+test('pengunjung tanpa sesi diarahkan ke halaman login untuk URL editor yang langsung dibuka', async ({ page }) => {
+  await page.goto('/editor/document-test');
+  await expect(page).toHaveURL(/\/login\?redirect=\/editor\/document-test/);
+  await expect(page.getByRole('heading', { name: 'Masuk ke Sistem' })).toBeVisible();
+});
+
 test('pengunjung tanpa sesi diarahkan ke halaman login', async ({ page }) => {
   await page.goto('/dokumen');
   await expect(page).toHaveURL(/\/login\?redirect=/);
@@ -20,4 +26,17 @@ test('akun OPD dapat masuk dan tidak memperoleh API khusus staf', async ({ page 
     return response.status;
   });
   expect(staffResponse).toBe(403);
+});
+
+test('verifikator tanpa penugasan ditolak saat membuka URL dokumen langsung', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Username / NIP').fill('test-staff');
+  await page.getByLabel('Password', { exact: true }).fill('sipanda-test-password');
+  await page.getByRole('button', { name: /Sign In \/ Masuk Sistem/ }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sipanda_token'))).toBeTruthy();
+
+  await page.goto('/editor/document-test');
+
+  await expect(page).toHaveURL(/\/dokumen$/);
+  await expect(page.getByText('Dokumen tidak termasuk penugasan Anda')).toBeVisible();
 });
