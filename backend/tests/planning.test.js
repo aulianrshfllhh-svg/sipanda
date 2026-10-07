@@ -32,7 +32,7 @@ test('budget sums leaf amounts, never double-counting parent entries',()=>{
 });
 test('rancangan Renja table is emitted on a landscape page',()=>{
  const sections=instantiate(SEED_TEMPLATES[0],'Kecamatan Mundu','2027');
- sections[3].subsections[2].tables=[{id:'renja-landscape',type:'renja',rows:[]}];
+ sections[3].subsections[0].tables=[{id:'renja-landscape',type:'renja',rows:[]}];
  const doc={opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Renja Murni',judul:'Renja Mundu',sections};
  const html=renderDocument(doc,{opd:{nama:'Kecamatan Mundu'},global:{}});
  assert.match(html,/data-landscape="true"/);
@@ -87,7 +87,7 @@ test('all generated annex types use the locked format and automatic identity',()
 
 test('generated annex tables use 12pt text on a landscape F4 page',()=>{
  const sections=instantiate(SEED_TEMPLATES[0],'Kecamatan Mundu','2027');
- sections[3].subsections[2].tables=[{id:'annex-wide',type:'renja',rows:[]}];
+ sections[3].subsections[0].tables=[{id:'annex-wide',type:'renja',rows:[]}];
  const doc={opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Lampiran Perbup Renja',isLampiranOtomatis:true,judul:'Lampiran',sections};
  const html=renderDocument(doc,{opdRecord:{nama:'Kecamatan Mundu',nomorLampiran:'LIV'},opd:{},global:{bupati:'IMRON'}});
  assert.match(html,/data-landscape="true"/);
