@@ -1,4 +1,4 @@
-# Automated test suite
+﻿# Automated test suite
 
 Root commands:
 
@@ -15,7 +15,8 @@ schema, then seeds deterministic test-only roles, users, an OPD, and a document.
 No test command falls back to `.env` or permits the development database.
 
 The export test writes its generated DOCX and PDF examples to `tests/output`.
-These files are test artifacts and are ignored by git.
+These files are intentional regression artifacts and are kept under version
+control for review; they are not treated as temporary ignored files.
 
 `npm run test:backend` reports the existing Node unit suite's pass/fail totals
 first. Once the isolated MySQL service is available, the API and export tests

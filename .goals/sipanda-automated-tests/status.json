@@ -1,6 +1,6 @@
 {
   "goal_id": "sipanda-automated-tests",
-  "status": "building",
+  "status": "inspecting",
   "iteration": 2,
   "builder_model": "GPT:5.6-Luna",
   "inspector_model": "GPT:5.6-Sol",
@@ -15,6 +15,14 @@
       "feedback": ".goals/sipanda-automated-tests/inspector-feedback-1.md",
       "recorded_at": "2026-10-07T14:00:00+07:00",
       "summary": "Frontend has two failing tests; required scenario coverage/reporting is incomplete; root test scripts remain untracked and outside the builder commit."
+    },
+    {
+      "iteration": 2,
+      "role": "inspector",
+      "verdict": "FAIL",
+      "feedback": ".goals/sipanda-automated-tests/inspector-feedback-2.md",
+      "recorded_at": "2026-10-07T14:05:00+07:00",
+      "summary": "Two frontend login assertions still fail as product defects; database-backed suite remains blocked until exact sipanda_test config and MySQL availability are verified; scope remains under the requested 23 scenarios."
     }
   ]
 }
