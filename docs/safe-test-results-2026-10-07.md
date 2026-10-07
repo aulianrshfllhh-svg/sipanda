@@ -8,10 +8,10 @@
 | Lapisan | Hasil |
 | --- | ---: |
 | Node backend | 101 lulus, 0 gagal |
-| Backend Vitest | 15 lulus, 0 gagal (3 berkas) |
+| Backend Vitest | 16 lulus, 0 gagal (3 berkas) |
 | Frontend Vitest | 3 lulus, 0 gagal (1 berkas) |
-| Playwright Chromium | 4 lulus, 0 gagal |
-| **Jumlah** | **123 lulus, 0 gagal** |
+| Playwright Chromium | 5 lulus, 0 gagal |
+| **Jumlah** | **125 lulus, 0 gagal** |
 
 Database sebelum setup destruktif diverifikasi dengan koneksi MySQL aktif:
 nama database yang dikonfigurasi dan `SELECT DATABASE()` sama-sama tepat
@@ -30,7 +30,11 @@ Tes API tambahan memeriksa pembatasan akses OPD, akses Super Admin lintas OPD,
 antrean verifikator sesuai penugasan, akses langsung melalui URL dokumen,
 persetujuan langsung dari Draft, dan kewajiban catatan revisi. Tes Chromium
 tambahan memastikan pengguna tanpa tugas yang mengetik URL editor langsung
-ditolak dan diarahkan kembali ke daftar dokumen.
+ditolak dan diarahkan kembali ke daftar dokumen, serta isi bab otomatis
+tersimpan dan bertahan setelah halaman dimuat ulang. Tes API RKPD juga
+memeriksa penyimpanan bab yang ditugaskan, penolakan bab yang tidak ditugaskan,
+akses Super Admin ke semua bab, pencatatan log assignment, dan pencabutan akses
+langsung setelah penugasan dihapus.
 
 DOCX dan PDF contoh ekspor berhasil dibuat dan diperiksa oleh
 `backend/tests/export-artifacts.vitest.test.js` di `tests/output`.
@@ -51,13 +55,13 @@ Tailwind memiliki opsi `content` kosong. Vite juga memperingatkan penggunaan
 ## Cakupan yang masih kurang dari 23 skenario
 
 Pengujian saat ini **belum mencakup seluruh 23 skenario secara menyeluruh**.
-Playwright mencakup empat tes autentikasi/akses, bukan seluruh alur kerja.
-Sejumlah aturan dan perilaku diuji pada unit test/backend, tetapi alur browser
-berikut masih belum tercakup:
+Playwright mencakup lima alur autentikasi, akses, dan persistensi, bukan
+seluruh alur kerja. Sejumlah aturan dan perilaku diuji pada unit test/backend,
+tetapi alur browser berikut masih belum tercakup:
 
 - alur review lengkap tiga pengguna, perubahan status/revisi, pergantian
   penugasan, dan pencatatan log;
-- edit bab bersamaan serta persistensi editor di browser;
+- edit bab bersamaan dalam beberapa sesi;
 - pengulangan mode landscape/undo, paste dan pembersihan tabel/teks, caption,
   serta validasi format dalam editor;
 - reset cover dan ekspor melalui browser;
@@ -66,5 +70,5 @@ berikut masih belum tercakup:
 
 Tes unit yang ada mencakup sebagian perilaku format/caption/annex/ekspor dan
 migrasi template, tetapi belum menggantikan alur E2E tersebut. Hasil akhir
-123/123 berarti semua tes yang saat ini ada lulus, bukan bahwa 23 skenario
+125/125 berarti semua tes yang saat ini ada lulus, bukan bahwa 23 skenario
 seluruhnya telah terotomasi.

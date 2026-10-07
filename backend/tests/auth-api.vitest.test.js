@@ -341,4 +341,124 @@ describe('API autentikasi dan akses', () => {
       });
     }
   });
+
+  it('penyusun RKPD dapat menyimpan bab yang ditugaskan tetapi tidak dapat menyimpan bab lain', async () => {
+    const documentId = 'document-rkpd-assignment-test';
+    const bapperidaId = 'opd-bapperida-test';
+    const staffUser = await prisma.user.findUnique({ where: { username: 'test-staff' } });
+    if (!staffUser) throw new Error('seeded RKPD planner not found');
+
+    await prisma.opd.create({
+      data: {
+        id: bapperidaId,
+        kode: 'BAPTEST',
+        nama: 'Bapperida Uji',
+        singkatan: 'BAP UJI',
+        nomorUrut: 99,
+        nomorLampiran: '99'
+      }
+    });
+    await prisma.document.create({
+      data: {
+        id: documentId,
+        kodeDoc: 'RKPD-TEST-001',
+        jenis: 'RKPD',
+        tahun: '2027',
+        judul: 'RKPD Uji Penugasan Bab',
+        opdId: bapperidaId,
+        opdName: 'Bapperida Uji',
+        sections: {
+          create: [
+            {
+              babId: 'bab-1',
+              babTitle: 'BAB I PENDAHULUAN',
+              babOrder: 1,
+              isLocked: false,
+              subsections: [{ id: 'sub-1', code: '1.1', title: 'Latar Belakang', content: '<p>Isi awal bab satu.</p>' }]
+            },
+            {
+              babId: 'bab-2',
+              babTitle: 'BAB II GAMBARAN UMUM',
+              babOrder: 2,
+              isLocked: false,
+              subsections: [{ id: 'sub-2', code: '2.1', title: 'Kondisi Umum', content: '<p>Isi awal bab dua.</p>' }]
+            }
+          ]
+        }
+      }
+    });
+
+    try {
+      const admin = await login('test-admin');
+      const adminDocument = await request(api)
+        .get(`/api/documents/${documentId}`)
+        .set('Authorization', `Bearer ${admin.body.token}`);
+      const assignmentResponse = await request(api)
+        .post(`/api/documents/${documentId}/assignments/chapters`)
+        .set('Authorization', `Bearer ${admin.body.token}`)
+        .send({ userId: staffUser.id, babId: 'bab-1', keterangan: 'Penyusun BAB I' });
+      expect(adminDocument.status).toBe(200);
+      expect(adminDocument.body.sections.map(section => section.id)).toEqual(['bab-1', 'bab-2']);
+      expect(assignmentResponse.status).toBe(201);
+
+      const staff = await login('test-staff');
+      const documentResponse = await request(api)
+        .get(`/api/documents/${documentId}`)
+        .set('Authorization', `Bearer ${staff.body.token}`);
+      expect(documentResponse.status).toBe(200);
+
+      const sessionId = 'planner-session-000001';
+      const session = await request(api)
+        .post(`/api/documents/${documentId}/editor-session`)
+        .set('Authorization', `Bearer ${staff.body.token}`)
+        .send({ sessionId, babIds: ['bab-1'] });
+      expect(session.status).toBe(200);
+
+      const babOne = documentResponse.body.sections.find(section => section.id === 'bab-1');
+      const babTwo = documentResponse.body.sections.find(section => section.id === 'bab-2');
+      const saveAssignedChapter = await request(api)
+        .put(`/api/documents/${documentId}`)
+        .set('Authorization', `Bearer ${staff.body.token}`)
+        .send({
+          editorSessionId: sessionId,
+          editorRevisions: session.body.revisions,
+          sections: [{
+            ...babOne,
+            subsections: [{ ...babOne.subsections[0], content: '<p>Perubahan penyusun bab satu.</p>' }]
+          }]
+        });
+      const saveOtherChapter = await request(api)
+        .put(`/api/documents/${documentId}`)
+        .set('Authorization', `Bearer ${staff.body.token}`)
+        .send({
+          editorSessionId: sessionId,
+          editorRevisions: session.body.revisions,
+          sections: [babTwo]
+        });
+
+      expect(saveAssignedChapter.status).toBe(200);
+      expect(saveOtherChapter.status).toBe(403);
+
+      const removeAssignment = await request(api)
+        .delete(`/api/documents/${documentId}/assignments/chapters/${assignmentResponse.body.id}`)
+        .set('Authorization', `Bearer ${admin.body.token}`);
+      const staffAfterRemoval = await request(api)
+        .get(`/api/documents/${documentId}`)
+        .set('Authorization', `Bearer ${staff.body.token}`);
+      const assignmentLogs = await prisma.penugasanLog.findMany({
+        where: { target: `${documentId}:bab-1` },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      expect(removeAssignment.status).toBe(200);
+      expect(staffAfterRemoval.status).toBe(403);
+      expect(assignmentLogs.map(entry => entry.aksi)).toEqual(['ASSIGN_BAB_RKPD', 'UNASSIGN_BAB_RKPD']);
+    } finally {
+      await prisma.$executeRaw`DELETE FROM editor_chapter_leases WHERE document_id=${documentId}`;
+      await prisma.penugasanLog.deleteMany({ where: { target: `${documentId}:bab-1` } });
+      await prisma.penugasanBabRkpd.deleteMany({ where: { documentId } });
+      await prisma.document.delete({ where: { id: documentId } });
+      await prisma.opd.delete({ where: { id: bapperidaId } });
+    }
+  });
 });
