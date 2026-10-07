@@ -1,4 +1,16 @@
 ﻿export const EMPTY_PROFILE={nama:'',alamat:'',jabatan:'',pimpinan:'',pangkat:'',nip:'',tempat:'Sumber',bulan:''};
+export function validateCoverLogo(value){
+  if(typeof value!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value))return 'Logo harus berupa PNG transparan.';
+  const encoded=value.slice('data:image/png;base64,'.length);
+  if(encoded.length>14_000_000)return 'Ukuran logo maksimal 10 MB.';
+  const bytes=Buffer.from(encoded,'base64');
+  if(bytes.length<33||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'Berkas logo PNG tidak valid.';
+  if(bytes.toString('ascii',12,16)!=='IHDR')return 'Struktur PNG logo tidak valid.';
+  const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20),colorType=bytes[25];
+  if(width<200||height<472)return 'Resolusi logo harus minimal 300 dpi pada tinggi cetak 4 cm (minimal 472 piksel).';
+  if(![4,6].includes(colorType))return 'Logo PNG harus mendukung latar transparan.';
+  return '';
+}
 export async function documentSettings(prisma,opdId) {
   const [global,profile,opd]=await Promise.all([
     prisma.documentSettings.findUnique({where:{id:'global'}}),
@@ -6,7 +18,7 @@ export async function documentSettings(prisma,opdId) {
     prisma.opd.findUnique({where:{id:opdId}}),
   ]);
   return {
-    global:{bupati:'IMRON',sekretarisDaerah:'',...(global?.data||{})},
+    global:{bupati:'IMRON',sekretarisDaerah:'',logoData:'',...(global?.data||{})},
     opd:{...EMPTY_PROFILE,...(profile?.data||{})},
     opdRecord:opd?{id:opd.id,nama:opd.nama,nomorLampiran:opd.nomorLampiran}:{id:opdId,nama:'',nomorLampiran:''}
   };
@@ -33,7 +45,10 @@ export function registerSettingsRoutes(app,prisma,auth,isSuperAdmin) {
         operations.push(prisma.opd.update({where:{id:req.params.opdId},data:{nama,nomorLampiran}}));
       }
       if(admin && req.body.global) {
-        const global={bupati:String(req.body.global.bupati||'').slice(0,200),sekretarisDaerah:String(req.body.global.sekretarisDaerah||'').slice(0,200)};
+        const logoData=String(req.body.global.logoData||'');
+        const logoError=logoData?validateCoverLogo(logoData):'';
+        if(logoError)return res.status(400).json({error:logoError});
+        const global={bupati:String(req.body.global.bupati||'').slice(0,200),sekretarisDaerah:String(req.body.global.sekretarisDaerah||'').slice(0,200),logoData};
         operations.push(prisma.documentSettings.upsert({where:{id:'global'},create:{id:'global',data:global},update:{data:global}}));
       }
       await prisma.$transaction(operations);

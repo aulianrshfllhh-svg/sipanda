@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {Document,Packer,Paragraph,ImageRun,PageOrientation} from 'docx';
 import {renderDocument} from './document-render.js';
-import {documentSettings} from './document-settings.js';
+import {documentSettings,validateCoverLogo} from './document-settings.js';
 import {restoreSourceTableWidths} from './document-import.js';
 import {sourcePdf,sourceDocx,wordToPdf,pdfPreview} from './annex-source.js';
 const pagination=fs.readFileSync(new URL('../shared/paginate.js',import.meta.url),'utf8');
@@ -60,7 +60,7 @@ export function registerExportRoutes(app,prisma,auth,permissions){
     doc={...doc,sections:await restoreSourceTableWidths(absolutePath,doc.sections)};
    }
   }
-  return {doc,settings,html:renderDocument(doc,settings)};
+  return {doc,settings,html:renderDocument(doc,settings,{editing:req.query.editing==='1'&&req.path.endsWith('/preview')&&!doc.isLampiranOtomatis})};
  }
  app.get('/api/documents/:id/source',auth,async(req,res)=>{
   try{
@@ -157,6 +157,10 @@ export function registerExportRoutes(app,prisma,auth,permissions){
   let browser;
   try{
    const item=await load(req,res);if(!item)return;
+   if(!item.source&&!item.doc.isLampiranOtomatis){
+    const logoError=validateCoverLogo(item.settings.global?.logoData||'');
+    if(logoError)throw Object.assign(new Error(logoError),{status:422});
+   }
    let data;
    if(item.source){
     if(req.params.format!=='pdf'&&item.sourceFormat!=='docx')return res.status(422).json({error:`Sumber berupa ${item.sourceFormat.toUpperCase()}. Unduh PDF untuk mempertahankan tata letak asli, atau unggah DOCX jika membutuhkan keluaran Word.`});
@@ -190,7 +194,7 @@ export function registerExportRoutes(app,prisma,auth,permissions){
     : item.doc.kodeDoc;
    res.setHeader('Content-Disposition',`attachment; filename="${fileBase.replace(/[^a-zA-Z0-9 _-]/g,'_')}.${req.params.format==='pdf'?'pdf':'docx'}"`);
    res.send(Buffer.from(data));
-  }catch(e){console.error(e);res.status(500).json({error:`Gagal mengekspor dokumen: ${e.message}`});}
+  }catch(e){console.error(e);res.status(e.status||500).json({error:`Gagal mengekspor dokumen: ${e.message}`});}
   finally{if(browser)await browser.close();}
  });
 }

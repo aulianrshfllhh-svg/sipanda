@@ -852,7 +852,10 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
     const updateData = { updatedAt: new Date() };
     if (frontMatter != null) {
       if (!permissions.editableBabIds.includes([...doc.sections].sort((a,b)=>a.babOrder-b.babOrder)[0]?.babId)) return res.status(403).json({ error: 'Kata pengantar hanya dapat diedit oleh penyusun BAB I' });
-      updateData.frontMatter = { preface: cleanHtml(String(frontMatter.preface || '').slice(0,50000), false) };
+      updateData.frontMatter = {
+        preface: cleanHtml(String(frontMatter.preface || '').slice(0,50000), false),
+        cover: typeof frontMatter.cover === 'string' ? cleanHtml(frontMatter.cover.slice(0,50000), false) : doc.frontMatter?.cover || ''
+      };
     }
     if (isSuperAdmin(req.currentUser)) {
       if (judul) updateData.judul = judul;
