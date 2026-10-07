@@ -9,7 +9,10 @@ export default defineConfig({
   root: frontendDirectory,
   plugins: [vue()],
   resolve: {
-    alias: { '@': path.join(frontendDirectory, 'src') },
+    alias: {
+      '@': path.join(frontendDirectory, 'src'),
+      vue: path.resolve(frontendDirectory, '..', 'node_modules', 'vue')
+    },
     dedupe: ['vue']
   },
   test: {

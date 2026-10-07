@@ -1,7 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { createMemoryHistory, createRouter } from 'vue-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginView from './LoginView.vue';
 
 vi.mock('@lucide/vue', () => {
@@ -46,6 +46,10 @@ describe('LoginView', () => {
     sessionStorage.clear();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('menampilkan form login dan pilihan tahun anggaran', async () => {
     const wrapper = await mountLogin();
     expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true);
@@ -54,24 +58,38 @@ describe('LoginView', () => {
   });
 
   it('menampilkan pesan API saat kredensial ditolak', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       headers: { get: () => 'application/json' },
       ok: false,
       json: async () => ({ error: 'Username atau password salah' })
-    }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
     const wrapper = await mountLogin();
     await wrapper.get('input[autocomplete="username"]').setValue('pengguna-tidak-ada');
     await wrapper.get('input[autocomplete="current-password"]').setValue('sandi-salah');
     await wrapper.get('form').trigger('submit');
     await flushPromises();
-    expect(wrapper.text()).toContain('Username atau password salah');
+    expect(wrapper.get('[role="alert"]').text()).toBe('Username atau password salah');
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ username: 'pengguna-tidak-ada', password: 'sandi-salah' })
+    }));
     expect(localStorage.getItem('sipanda_token')).toBeNull();
   });
 
   it('mengubah visibilitas kata sandi tanpa mengirim form', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
     const wrapper = await mountLogin();
+    const passwordInput = wrapper.get('input[autocomplete="current-password"]');
+    const toggle = wrapper.get('button[aria-label="Tampilkan password"]');
     expect(wrapper.get('input[autocomplete="current-password"]').attributes('type')).toBe('password');
-    await wrapper.get('button[aria-label="Tampilkan password"]').trigger('click');
-    expect(wrapper.get('input[autocomplete="current-password"]').attributes('type')).toBe('text');
+    await toggle.trigger('click');
+    expect(passwordInput.attributes('type')).toBe('text');
+    expect(wrapper.get('button[aria-label="Sembunyikan password"]').attributes('aria-pressed')).toBe('true');
+    await wrapper.get('button[aria-label="Sembunyikan password"]').trigger('click');
+    expect(passwordInput.attributes('type')).toBe('password');
+    expect(wrapper.get('button[aria-label="Tampilkan password"]').attributes('aria-pressed')).toBe('false');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
