@@ -19,6 +19,16 @@ export function archiveContext(doc, year, parent) {
   return {matrixKind:archiveCategory(doc)==='Lampiran Matriks'?(pure?'Murni':'Perubahan'):null,periodStart:null,periodEnd:null};
  return null;
 }
+export function archiveFilterContext(doc, year, parent) {
+ const category=archiveCategory(doc);
+ if (!category) return null;
+ const source=category==='Lampiran Matriks'&&parent?.jenis.startsWith('Renstra')?parent:doc;
+ const renstra=source.jenis.startsWith('Renstra')||doc.jenis==='Lampiran Perbup Renstra';
+ const start=String(source.regulation?.periodeMulai||source.tahun);
+ const end=String(source.regulation?.periodeAkhir||source.tahun);
+ if(year!=='all'&&(renstra?!(Number(start)<=Number(year)&&Number(year)<=Number(end)):String(doc.tahun)!==year))return null;
+ return {matrixKind:null,periodStart:renstra?start:null,periodEnd:renstra?end:null};
+}
 const archiveSelect={id:true,opdId:true,judul:true,jenis:true,tahun:true,status:true,cara:true,isLampiranOtomatis:true,parentId:true,filePath:true,fileName:true,createdById:true,regulation:true,
  versions:{orderBy:{versi:'desc'},take:1,select:{versi:true}},
  verifications:{orderBy:{createdAt:'desc'},select:{status:true,createdAt:true,verifier:{select:{nama:true}}}},_count:{select:{sections:true}}};
@@ -38,18 +48,15 @@ export function archiveRecord(doc, parent) {
 export function registerMonitoringArchives(app,prisma,auth,isAdmin,permissions) {
  app.get('/api/monitoring/archives',auth,async(req,res)=>{
   if(!isAdmin(req.currentUser)&&req.currentUser.role!=='staf')return res.status(403).json({error:'Monitoring hanya tersedia untuk pegawai Bapperida.'});
-  const tahun=String(req.query.tahun||new Date().getFullYear());
-  if(!/^\d{4}$/.test(tahun))return res.status(400).json({error:'Tahun anggaran tidak valid.'});
+  const tahun=String(req.query.tahun||'all');
+  if(tahun!=='all'&&!/^\d{4}$/.test(tahun))return res.status(400).json({error:'Tahun anggaran tidak valid.'});
   const status='Disetujui'; // Never allow request parameters to broaden approval status.
-  const nextYear=String(Number(tahun)+1);
   try{
    const assignments=isAdmin(req.currentUser)?null:await prisma.penugasanVerifikasi.findMany({where:{userId:req.currentUser.id},select:{opdId:true}});
    const opds=await prisma.opd.findMany({where:{isActive:true,...(assignments?{id:{in:assignments.map(a=>a.opdId)}}:{})},orderBy:{nomorUrut:'asc'}});
    const docs=await prisma.document.findMany({where:{opdId:{in:opds.map(o=>o.id)},status:'Disetujui',OR:[
-    {jenis:{in:['Renja Murni','Lampiran Perbup Renja']},tahun:nextYear},
-    {jenis:{in:['Renja Perubahan','Lampiran Kepbup Perubahan Renja']},tahun},
-    {jenis:'Lampiran Renja',tahun:{in:[tahun,nextYear]}},
-    {jenis:{in:['Renstra','Renstra Murni','Renstra Perubahan']}}
+    {jenis:{in:['Renja Murni','Renja Perubahan','Lampiran Perbup Renja','Lampiran Kepbup Perubahan Renja','Lampiran Renja']},...(tahun==='all'?{}:{tahun})},
+    {jenis:{in:['Renstra','Renstra Murni','Renstra Perubahan','Lampiran Perbup Renstra']}}
    ]},select:archiveSelect,orderBy:{updatedAt:'desc'}});
    const visible=[];
    for(const doc of docs)if((await permissions(req.currentUser,doc)).canView)visible.push(doc);
@@ -60,7 +67,7 @@ export function registerMonitoringArchives(app,prisma,auth,isAdmin,permissions) 
     for(const parent of parents)if((await permissions(req.currentUser,parent)).canView)byId.set(parent.id,parent);
    }
    const records=visible.flatMap(d=>{
-    const parent=byId.get(d.parentId),context=archiveContext(d,tahun,parent),record=archiveRecord(d,parent);
+    const parent=byId.get(d.parentId),context=archiveFilterContext(d,tahun,parent),record=archiveRecord(d,parent);
     return context&&record.status==='Disetujui'?[{...record,...context}]:[];
    });
    res.json({tahun,status,opds:opds.map(opd=>{

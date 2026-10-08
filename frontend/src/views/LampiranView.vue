@@ -4,7 +4,7 @@
       <div>
         <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dokumen turunan otomatis</p>
         <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Lampiran Renja / Renstra</h1>
-        <p class="mt-1 text-xs text-slate-500">Lampiran mengikuti dokumen induk dan tersedia setelah dokumen induk dibuat.</p>
+        <p class="mt-1 text-xs text-slate-500">Lampiran dibuat otomatis dan ikut diajukan ke Admin saat dokumen induk disubmit. Status lampiran mengikuti dokumen induk.</p>
       </div>
       <button @click="loadAnnexes" :disabled="loading" class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
         {{ loading ? 'Memuat...' : 'Muat Ulang' }}
@@ -14,9 +14,8 @@
     <section class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
       <label class="space-y-1 text-xs font-semibold text-slate-600">
         Perangkat Daerah
-        <select v-model="filterOpd" :disabled="!store.isBapperida" @change="loadAnnexes" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 disabled:bg-slate-100 disabled:text-slate-500">
-          <option value="">Semua OPD</option>
-          <option v-for="opd in store.opds" :key="opd.id" :value="opd.id">{{ opd.nama }}</option>
+        <select v-model="filterOpd" disabled @change="loadAnnexes" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 disabled:bg-slate-100 disabled:text-slate-500">
+          <option v-for="opd in store.opds.filter(item => item.id === store.currentUser?.opdId)" :key="opd.id" :value="opd.id">{{ opd.nama }}</option>
         </select>
       </label>
       <label class="space-y-1 text-xs font-semibold text-slate-600">
@@ -144,7 +143,7 @@ import type { DocumentItem, OPD } from '../types';
 
 type Annex = DocumentItem & {
   opd?: OPD;
-  parent?: { status?: string; sourceReady?: boolean; cara?: string; fileName?: string | null };
+  parent?: { id?: string; jenis?: string; status?: string; sourceReady?: boolean; cara?: string; fileName?: string | null };
 };
 type ValidationCheck = { label: string; ok: boolean; detail: string };
 type DialogMode = 'preview' | 'export' | 'config';
@@ -199,7 +198,7 @@ async function loadAnnexes() {
     }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Gagal memuat lampiran');
-    annexes.value = data;
+    annexes.value = data.filter((annex: Annex) => annex.opdId === store.currentUser?.opdId);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Gagal memuat lampiran';
   } finally {
@@ -320,7 +319,7 @@ function closeDialog() {
 
 onMounted(async () => {
   if (!store.opds.length) await store.fetchOpds();
-  if (!store.isBapperida) filterOpd.value = store.currentUser?.opdId || '';
+  filterOpd.value = store.currentUser?.opdId || '';
   const queryType = String(route.query.jenis || '');
   if (annexTypes.includes(queryType)) filterType.value = queryType;
   await loadAnnexes();

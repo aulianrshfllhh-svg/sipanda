@@ -17,7 +17,7 @@
 
       <!-- Form Body -->
       <form @submit.prevent="handleSubmit" class="p-6 space-y-5">
-        <p v-if="selectedCara==='template' && requiresVersion" class="rounded-lg p-3 text-xs" :class="activeTemplate ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-800'">
+        <p v-if="selectedCara==='template'" class="rounded-lg p-3 text-xs" :class="activeTemplate ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-800'">
           {{ loadingTemplate ? 'Memeriksa template tahun anggaran?' : activeTemplate ? `Template: ${activeTemplate.nama} ? versi ${activeTemplate.versi}. Dokumen mempertahankan versi ini.` : `Belum ada template aktif untuk ${selectedJenis} tahun ${selectedTahun}. Pilih tahun lain atau hubungi Super Admin.` }}
         </p>
         <!-- 1. Jenis Dokumen -->
@@ -222,15 +222,17 @@ const selectedFile = ref<File | null>(null);
 const loading = ref(false);
 const activeTemplate = ref<any>(null);
 const loadingTemplate = ref(false);
-const requiresVersion = computed(() => !selectedJenis.value.startsWith('Renstra'));
 let templateRequest = 0;
 watch([selectedJenis, selectedTahun, () => store.showCreateModal], async () => {
   const request = ++templateRequest;
-  if (!store.showCreateModal || !requiresVersion.value) return;
+  if (!store.showCreateModal) return;
   loadingTemplate.value=true;activeTemplate.value=null;
   try {
     const res=await apiFetch(`/api/templates?jenis=${encodeURIComponent(selectedJenis.value)}&tahun=${selectedTahun.value}`);
-    if (res.ok) { const list=await res.json(); if(request===templateRequest) activeTemplate.value=list.find((t:any)=>t.isActive)||null; }
+    if (res.ok) {
+      const list=await res.json();
+      if(request===templateRequest) activeTemplate.value=list.find((t:any)=>t.isActive && t.tahun===selectedTahun.value)||list.find((t:any)=>t.isActive)||null;
+    }
   } finally { if(request===templateRequest) loadingTemplate.value=false; }
 });
 watch([selectedJenis, selectedTahun], () => {
@@ -285,7 +287,7 @@ const loadAssignedOpds = async () => {
 watch(() => store.currentUser?.role, async () => {
   selectedOpdId.value = store.isOpd
     ? store.currentUser?.opdId || ''
-    : store.isSuperAdmin ? store.opds.find(opd => opd.id !== 'bapperida')?.id || '' : '';
+    : store.isSuperAdmin ? store.opds.find(opd => opd.id === 'bapperida')?.id || store.opds[0]?.id || '' : '';
   if (store.isStaff) await loadAssignedOpds();
 });
 watch(() => store.showCreateModal, async isOpen => {
@@ -296,7 +298,7 @@ watch(() => store.showCreateModal, async isOpen => {
   selectedCara.value = 'template';
   selectedOpdId.value = store.isOpd
     ? store.currentUser?.opdId || ''
-    : store.isSuperAdmin ? store.opds.find(opd => opd.id !== 'bapperida')?.id || '' : '';
+    : store.isSuperAdmin ? store.opds.find(opd => opd.id === 'bapperida')?.id || store.opds[0]?.id || '' : '';
   if (store.isStaff) await loadAssignedOpds();
 });
 watch(selectedTahun, async () => {
@@ -305,7 +307,7 @@ watch(selectedTahun, async () => {
 
 watch(() => store.opds, opds => {
   if (!selectedOpdId.value && store.isBapperida) {
-    selectedOpdId.value = opds.find(opd => opd.id !== 'bapperida')?.id || '';
+    selectedOpdId.value = opds.find(opd => opd.id === 'bapperida')?.id || opds[0]?.id || '';
   }
 }, { immediate: true });
 

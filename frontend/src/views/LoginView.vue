@@ -10,42 +10,71 @@
         <span class="system-mark" aria-hidden="true"></span>
         <span>SIPANDA Online</span>
         <span class="system-divider">|</span>
-        <span>Kepemimpinan Kab. Cirebon</span>
+        <span>Pemerintah Daerah Kabupaten Cirebon</span>
       </div>
-      <span class="fiscal-year">Tahun Anggaran {{ year }}/{{ year + 1 }}</span>
+      <div class="system-tools">
+        <span class="fiscal-year">
+          <CalendarDays aria-hidden="true" />
+          Tahun Anggaran {{ selectedYear }}/{{ Number(selectedYear) + 1 }}
+        </span>
+        <span class="help-label"><CircleHelp aria-hidden="true" /> Pusat Bantuan</span>
+      </div>
     </header>
 
     <div class="login-content">
-      <div class="wordmark" aria-label="SIPANDA">SIPANDA</div>
-
       <section class="login-card" aria-labelledby="login-title">
         <div class="branding-panel">
-          <KabCirebonLogo :width="76" :height="92" custom-class="district-emblem" />
+          <div class="district-identity">
+            <KabCirebonLogo :width="34" :height="42" custom-class="district-emblem" />
+            <div>
+              <strong>PEMERINTAH KABUPATEN CIREBON</strong>
+              <span>Bapperida</span>
+            </div>
+          </div>
+          <div class="sipanda-brand" aria-label="SIPANDA">
+            <svg class="sipanda-emblem" viewBox="540 60 740 570" aria-hidden="true">
+              <image href="/images/sipanda-logo-20261005.png" width="1800" height="874" />
+            </svg>
+            <span>SIPANDA</span>
+          </div>
           <div class="branding-copy">
             <h1 id="login-title">Sistem Informasi Perencanaan Daerah</h1>
             <p>Kabupaten Cirebon</p>
           </div>
+          <div class="security-note">
+            <ShieldCheck aria-hidden="true" />
+            <span>Tersertifikasi Keamanan &amp; BSR-E BSSN</span>
+          </div>
         </div>
 
         <div class="form-panel">
+          <div class="form-heading">
+            <h2>Masuk ke Sistem</h2>
+            <p>Silakan masukkan kredensial akun OPD / Verifikator Anda.</p>
+          </div>
           <form @submit.prevent="handleLogin" class="login-form">
-            <label class="field">
-              <span class="sr-only">Username</span>
+            <label class="field-group">
+              <span>Username / NIP</span>
+              <span class="field">
+                <UserRound class="field-icon" aria-hidden="true" />
               <input
                 v-model="username"
                 type="text"
-                placeholder="Username"
+                placeholder="Masukkan NIP atau Username SIASN"
                 autocomplete="username"
                 required
               />
+              </span>
             </label>
 
-            <label class="field password-field">
-              <span class="sr-only">Password</span>
+            <label class="field-group">
+              <span>Password</span>
+              <span class="field password-field">
+                <LockKeyhole class="field-icon" aria-hidden="true" />
               <input
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
-                placeholder="Password"
+                placeholder="Masukkan password"
                 autocomplete="current-password"
                 required
               />
@@ -64,33 +93,55 @@
                   <path d="m3 3 18 18M10.6 6.1A10.8 10.8 0 0 1 12 6c6.4 0 10 6 10 6a15.8 15.8 0 0 1-3.1 3.6M6.2 6.2C3.5 8 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.6" />
                 </svg>
               </button>
+              </span>
             </label>
 
+            <label class="field-group">
+              <span>Tahun Rencana / Anggaran</span>
+              <span class="select-wrap">
+                <select v-model="selectedYear" aria-label="Tahun Rencana atau Anggaran">
+                  <option v-for="availableYear in store.availableYears" :key="availableYear" :value="availableYear">
+                    Tahun Anggaran {{ availableYear }}
+                  </option>
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </span>
+            </label>
+
+            <p v-if="sessionExpired" class="login-error" role="status">Sesi Anda telah berakhir. Silakan masuk kembali untuk melanjutkan.</p>
             <p v-if="errorMessage" class="login-error" role="alert">{{ errorMessage }}</p>
 
             <button type="submit" class="submit-button" :disabled="isLoading">
               <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
-              {{ isLoading ? 'Memproses...' : 'Sign In' }}
+              {{ isLoading ? 'Memproses...' : 'Sign In / Masuk Sistem' }}
             </button>
           </form>
 
           <div class="form-footer">
-            <span>Belum punya akun?</span>
+            <span>Belum punya akun? <strong>Hubungi Bapperida</strong></span>
             <span class="version">v2.0.0 · SIPANDA</span>
           </div>
         </div>
       </section>
-
-      <footer class="copyright">
-        © {{ year }} Pemerintah Daerah Kabupaten Cirebon. Hak Cipta Dilindungi.
-      </footer>
     </div>
+
+    <footer class="copyright">
+      <span>© {{ year }} Pemerintah Daerah Kabupaten Cirebon. Hak Cipta Dilindungi.</span>
+      <div class="footer-links">
+        <span>Kebijakan Privasi</span>
+        <span aria-hidden="true">·</span>
+        <span>Standar Keamanan Informasi</span>
+        <span aria-hidden="true">·</span>
+        <span>Bantuan Helpdesk</span>
+      </div>
+    </footer>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { CalendarDays, ChevronDown, CircleHelp, LockKeyhole, ShieldCheck, UserRound } from '@lucide/vue';
 import KabCirebonLogo from '../components/common/KabCirebonLogo.vue';
 import { useAppStore } from '../stores/appStore';
 
@@ -103,8 +154,15 @@ const showPassword = ref(false);
 const errorMessage = ref('');
 const isLoading = ref(false);
 const year = computed(() => new Date().getFullYear());
+const selectedYear = computed({
+  get: () => store.selectedTahun,
+  set: (value: string) => store.setSelectedTahun(value)
+});
+const sessionExpired = computed(() => router.currentRoute.value.query.expired === '1');
 
-onMounted(() => {
+onMounted(async () => {
+  if (!store.isAuthenticated) return;
+  await store.fetchCurrentUser();
   if (store.isAuthenticated) router.replace('/');
 });
 
@@ -149,7 +207,10 @@ const handleLogin = async () => {
     await store.fetchCurrentUser();
     await store.fetchOpds();
     await store.fetchDocuments();
-    router.replace('/');
+    const returnTo = sessionStorage.getItem('sipanda_return_to')
+      || (typeof router.currentRoute.value.query.redirect === 'string' ? router.currentRoute.value.query.redirect : null);
+    sessionStorage.removeItem('sipanda_return_to');
+    router.replace(returnTo?.startsWith('/') && !returnTo.startsWith('//') && !returnTo.startsWith('/login') ? returnTo : '/');
   } catch {
     errorMessage.value = 'Tidak dapat terhubung ke server. Jalankan start.bat di folder SIPANDA, lalu coba masuk kembali.';
   } finally {
@@ -260,18 +321,6 @@ const handleLogin = async () => {
   margin: auto;
 }
 
-.wordmark {
-  margin: 0 0 20px;
-  padding: 0 8px 2px 13px;
-  color: #f7f9ff;
-  background: rgba(74, 102, 204, 0.28);
-  font-size: clamp(25px, 5vw, 38px);
-  font-weight: 400;
-  letter-spacing: 0.31em;
-  line-height: 1.1;
-  text-shadow: 0 2px 18px rgba(183, 203, 255, 0.24);
-}
-
 .login-card {
   display: grid;
   width: 100%;
@@ -301,8 +350,11 @@ const handleLogin = async () => {
 }
 
 .district-emblem {
-  margin-bottom: 13px;
-  filter: drop-shadow(0 4px 9px rgba(0, 0, 0, 0.24));
+  align-self: flex-start;
+  width: 30px;
+  height: 36px;
+  flex: 0 0 30px;
+  margin-bottom: 8px;
 }
 
 .branding-copy h1 {
@@ -504,10 +556,6 @@ const handleLogin = async () => {
     width: min(100%, 420px);
   }
 
-  .wordmark {
-    margin-bottom: 16px;
-  }
-
   .login-card {
     grid-template-columns: 1fr;
   }
@@ -518,6 +566,7 @@ const handleLogin = async () => {
   }
 
   .district-emblem {
+    align-self: flex-start;
     margin-bottom: 8px;
   }
 
@@ -542,11 +591,6 @@ const handleLogin = async () => {
   .login-page {
     padding-top: 42px;
     padding-bottom: 24px;
-  }
-
-  .wordmark {
-    margin-bottom: 10px;
-    font-size: 28px;
   }
 
   .login-card {
@@ -576,6 +620,480 @@ const handleLogin = async () => {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 56px 24px 52px;
+  background: radial-gradient(ellipse at 50% 48%, #111e35 0%, #091426 72%);
+}
+
+.login-page::before {
+  display: none;
+}
+
+.backdrop-glow {
+  background: radial-gradient(ellipse at 50% 46%, rgba(43, 77, 136, 0.16), transparent 62%);
+}
+
+.backdrop-grid {
+  opacity: 0.13;
+  background-size: 46px 46px;
+  mask-image: none;
+}
+
+.system-bar {
+  top: 0;
+  right: 0;
+  left: 0;
+  min-height: 40px;
+  padding: 0 26px;
+  border-bottom-color: rgba(148, 163, 184, 0.17);
+  color: #c3cede;
+  font-size: 11px;
+}
+
+.system-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+
+.system-identity {
+  gap: 10px;
+}
+
+.system-divider {
+  margin: 0 3px;
+  color: #4b5a70;
+}
+
+.system-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fiscal-year,
+.help-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.fiscal-year {
+  padding: 5px 9px;
+  border: 1px solid #2a3951;
+  border-radius: 4px;
+  background: #111e32;
+}
+
+.fiscal-year svg,
+.help-label svg {
+  width: 12px;
+  height: 12px;
+  color: #9aabc4;
+}
+
+.fiscal-year svg {
+  color: #60a5fa;
+}
+
+.login-content {
+  width: min(100%, 864px);
+  flex: 1;
+  justify-content: center;
+  margin: auto;
+}
+
+.login-card {
+  min-height: 514px;
+  grid-template-columns: minmax(0, 358px) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 16px;
+  background: #0e192d;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+
+.branding-panel,
+.form-panel {
+  margin: 0;
+}
+
+.branding-panel {
+  position: relative;
+  justify-content: flex-start;
+  padding: 34px 36px 88px;
+  border-right: 1px solid rgba(148, 163, 184, 0.17);
+}
+
+.district-identity {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  align-self: flex-start;
+  gap: 14px;
+  text-align: left;
+}
+
+.district-identity > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.district-identity strong {
+  color: #75b9ff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+}
+
+.district-identity span {
+  color: #d4deed;
+  font-size: 11px;
+}
+
+.district-emblem {
+  width: 34px;
+  height: 42px;
+  flex: 0 0 34px;
+  margin: 0;
+}
+
+.sipanda-emblem {
+  display: block;
+  width: 132px;
+  height: 104px;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sipanda-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 48px auto 36px;
+}
+
+.sipanda-brand span {
+  margin-top: -2px;
+  color: #f7f9ff;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.branding-copy h1 {
+  max-width: 270px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+}
+
+.branding-copy p {
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.security-note {
+  position: absolute;
+  right: 36px;
+  bottom: 28px;
+  left: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  color: #a7b6cc;
+  font-size: 10px;
+}
+
+.security-note svg {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
+}
+
+.form-panel {
+  justify-content: center;
+  padding: 38px 39px;
+  border-left: 0;
+}
+
+.form-heading {
+  margin-bottom: 24px;
+}
+
+.form-heading h2 {
+  margin: 0;
+  color: #f1f5fb;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.form-heading p {
+  margin: 6px 0 0;
+  color: #9eacc1;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.login-form {
+  gap: 15px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #d7e0ee;
+  font-size: 11px;
+}
+
+.field {
+  min-height: 40px;
+  gap: 10px;
+  padding: 0 11px;
+  border: 1px solid #2c3a51;
+  border-radius: 7px;
+  background: #070f1f;
+}
+
+.field:focus-within {
+  border-color: #4e85ee;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14);
+}
+
+.field-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: #92a2ba;
+}
+
+.field input {
+  height: 100%;
+  padding: 0;
+  font-size: 11px;
+}
+
+.field input::placeholder {
+  color: #718098;
+}
+
+.password-field input {
+  padding-right: 28px;
+}
+
+.password-toggle {
+  right: 8px;
+  width: 24px;
+  height: 30px;
+}
+
+.password-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.select-wrap {
+  position: relative;
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  border: 1px solid #2c3a51;
+  border-radius: 7px;
+  background: #070f1f;
+}
+
+.select-wrap select {
+  width: 100%;
+  min-height: 38px;
+  appearance: none;
+  padding: 0 36px 0 11px;
+  border: 0;
+  outline: 0;
+  color: #d7e0ee;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+}
+
+.select-wrap:focus-within {
+  border-color: #4e85ee;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.14);
+}
+
+.select-wrap > svg {
+  position: absolute;
+  right: 11px;
+  width: 14px;
+  height: 14px;
+  color: #8797ae;
+  pointer-events: none;
+}
+
+.login-error {
+  margin: -3px 0;
+}
+
+.submit-button {
+  min-height: 40px;
+  margin-top: 1px;
+  border: 1px solid #3678f4;
+  border-radius: 7px;
+  background: #2864e8;
+  color: #fff;
+  font-size: 12px;
+}
+
+.submit-button:hover:not(:disabled) {
+  border-color: #5890ff;
+  background: #3474f5;
+}
+
+.form-footer {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 10px;
+}
+
+.form-footer strong {
+  color: #70b7ff;
+  font-weight: 500;
+}
+
+.copyright {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 0 24px;
+  border-top: 1px solid rgba(148, 163, 184, 0.17);
+  color: #a7b6cc;
+  font-size: 10px;
+  text-align: left;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #8797ae;
+}
+
+@media (max-width: 700px) {
+  .login-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 56px 14px 58px;
+  }
+
+  .system-bar {
+    right: 0;
+    left: 0;
+    min-height: 40px;
+    gap: 8px;
+    padding: 0 10px;
+    font-size: 9px;
+  }
+
+  .system-identity {
+    gap: 7px;
+  }
+
+  .system-identity > span:last-child,
+  .help-label {
+    display: none;
+  }
+
+  .fiscal-year {
+    padding: 4px 6px;
+    font-size: 8px;
+  }
+
+  .login-content {
+    width: min(100%, 440px);
+  }
+
+  .login-card {
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .branding-panel {
+    min-height: 320px;
+    padding: 22px 24px 68px;
+    border-right: 0;
+  }
+
+  .sipanda-emblem {
+    width: 122px;
+    height: 96px;
+  }
+
+  .sipanda-brand {
+    margin: 28px auto 20px;
+  }
+
+  .sipanda-brand span {
+    font-size: 21px;
+  }
+
+  .security-note {
+    right: 24px;
+    bottom: 18px;
+    left: 24px;
+    padding-top: 12px;
+  }
+
+  .form-panel {
+    padding: 28px 24px;
+    border-top: 1px solid rgba(148, 163, 184, 0.17);
+  }
+
+  .form-heading {
+    margin-bottom: 20px;
+  }
+
+  .copyright {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 9px;
+    text-align: center;
+  }
+
+  .footer-links {
+    display: none;
   }
 }
 </style>

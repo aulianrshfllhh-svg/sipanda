@@ -51,7 +51,7 @@ test('DOCX import extracts BAB I through BAB Penutup and preserves content and w
    jenis:'Lampiran Perbup Renja',tahun:'2027',judul:'Lampiran hasil DOCX',
    opdName:'Kecamatan Depok',isLampiranOtomatis:true,sections
   },{opdRecord:{nama:'Kecamatan Depok',nomorLampiran:'XXXVIII'},opd:{},global:{bupati:'IMRON'}});
-  assert.match(html,/data-landscape="true"/);
+  assert.match(html,/class="doc-section-break" data-orientation="landscape"/);
   assert.match(html,/table-layout:fixed/);
   assert.match(html,/Isi penutup/);
  } finally {

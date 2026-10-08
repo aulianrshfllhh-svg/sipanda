@@ -48,6 +48,7 @@ model User {
   penugasanLog           PenugasanLog[]
   documents              Document[]              @relation("DocumentCreator")
   verifications          Verification[]
+  sentNotifications      Notification[]
 
   @@map("users")
 }
@@ -80,6 +81,7 @@ model Opd {
   users               User[]
   documents           Document[]
   penugasanVerifikasi PenugasanVerifikasi[]
+  notifications       Notification[]
 
   @@map("opd")
 }
@@ -194,6 +196,33 @@ model Document {
 // ─────────────────────────────────────────────
 // 7. SECTION DOKUMEN (BAB & SUB-BAB)
 // ─────────────────────────────────────────────
+
+model EditorChapterLease {
+  documentId String @db.VarChar(191) @map("document_id")
+  babId String @db.VarChar(50) @map("bab_id")
+  sessionId String @db.VarChar(64) @map("session_id")
+  userId String @db.VarChar(191) @map("user_id")
+  userName String @db.VarChar(255) @map("user_name")
+  expiresAt DateTime @db.DateTime(3) @map("expires_at")
+  @@id([documentId,babId])
+  @@index([expiresAt],map:"editor_lease_expiry")
+  @@map("editor_chapter_leases")
+}
+
+model EditorDocumentComment {
+ id String @id @db.VarChar(191)
+ documentId String @db.VarChar(191) @map("document_id")
+ parentId String? @db.VarChar(191) @map("parent_id")
+ userId String @db.VarChar(191) @map("user_id")
+ userName String @db.VarChar(255) @map("user_name")
+ body String @db.Text
+ target Json
+ resolved Boolean @default(false)
+ createdAt DateTime @default(now()) @db.DateTime(3) @map("created_at")
+ updatedAt DateTime @default(now()) @db.DateTime(3) @map("updated_at")
+ @@index([documentId,parentId],map:"editor_comment_doc")
+ @@map("editor_document_comments")
+}
 
 model DocumentSection {
   id          String   @id @default(cuid())
@@ -310,6 +339,23 @@ model ActivityLog {
 
   @@index([documentId])
   @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  opdId     String   @map("opd_id") @db.VarChar(100)
+  senderId  String   @map("sender_id")
+  title     String   @db.VarChar(150)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+
+  opd    Opd  @relation(fields: [opdId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@index([opdId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("notifications")
 }
 
 model DocumentSettings {

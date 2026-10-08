@@ -45,7 +45,7 @@ const perangkatDaerah = [
   ['dpmptsp',      'Dinas Penanaman Modal dan Pelayanan Terpadu Satu Pintu',                'DPMPTSP'],
   ['dpmd',         'Dinas Pemberdayaan Masyarakat dan Desa',                                'DPMD'],
   ['bkpsdm',       'Badan Kepegawaian dan Pengembangan Sumber Daya Manusia',                'BKPSDM'],
-  ['bapperida',    'Badan Perencanaan Pembangunan, Penelitian dan Pengembangan Daerah',     'Bapperida'],
+  ['bapperida',    'Badan Perencanaan Pembangunan, Riset, dan Inovasi Daerah',     'Bapperida'],
   ['bkad',         'Badan Keuangan dan Aset Daerah',                                        'BKAD'],
   ['bapenda',      'Badan Pendapatan Daerah',                                               'Bapenda'],
   ['kesbangpol',   'Badan Kesatuan Bangsa dan Politik',                                     'Kesbangpol'],
@@ -77,79 +77,6 @@ const ALL_OPDS = [
 }));
 
 // ─── Template sections generator ────────────────────────────────────────────
-function generateSections(docType = 'Renja Murni', opdName = 'Dinas Kesehatan', tahun = '2025') {
-  const isRkpd = docType.includes('RKPD');
-  return [
-    {
-      babId: 'bab-1',
-      babTitle: 'BAB I PENDAHULUAN',
-      babOrder: 1,
-      isLocked: true,
-      subsections: [
-        { id: 'sub-1-1', code: '1.1', title: 'Latar Belakang', locked: true,
-          content: `<p>Rencana Kerja (Renja) ${opdName} Tahun Anggaran ${tahun} disusun sebagai dokumen perencanaan tahunan yang memuat program, kegiatan, sub kegiatan, indikator kinerja, target capaian, serta pagu indikatif pendanaan.</p>` },
-        { id: 'sub-1-2', code: '1.2', title: 'Landasan Hukum', locked: true,
-          content: `<p>Landasan hukum penyusunan Renja ${opdName} Tahun Anggaran ${tahun} di antaranya:<br/>1. UU No. 25 Tahun 2004 tentang Sistem Perencanaan Pembangunan Nasional;<br/>2. UU No. 23 Tahun 2014 tentang Pemerintahan Daerah;<br/>3. Permendagri No. 86 Tahun 2017.</p>` },
-        { id: 'sub-1-3', code: '1.3', title: 'Maksud dan Tujuan', locked: true,
-          content: `<p>Maksud penyusunan adalah menyediakan pedoman resmi perencanaan teknis dan penganggaran tahunan bagi ${opdName}.</p>` },
-        { id: 'sub-1-4', code: '1.4', title: 'Sistematika Penulisan', locked: true,
-          content: `<p>Dokumen ini disusun sesuai format baku Permendagri No. 86 Tahun 2017 dengan lima bab utama.</p>` },
-      ]
-    },
-    {
-      babId: 'bab-2',
-      babTitle: 'BAB II EVALUASI PELAKSANAAN RENJA TAHUN LALU',
-      babOrder: 2,
-      isLocked: true,
-      subsections: [
-        { id: 'sub-2-1', code: '2.1', title: 'Evaluasi Pelaksanaan Renja Tahun Lalu', locked: true,
-          content: '<p>Evaluasi terhadap capaian pelaksanaan program dan kegiatan tahun sebelumnya menunjukkan tingkat efektivitas yang memadai.</p>' },
-        { id: 'sub-2-2', code: '2.2', title: 'Analisis Kinerja Pelayanan Perangkat Daerah', locked: true,
-          content: '<p>Capaian indikator kinerja pelayanan perangkat daerah berdasarkan target dan realisasi berjalan optimal.</p>' },
-        { id: 'sub-2-3', code: '2.3', title: 'Isu-Isu Penting Penyelenggaraan Tugas dan Fungsi', locked: true,
-          content: '<p>Isu strategis mencakup percepatan transformasi digital dan peningkatan kompetensi aparatur.</p>' },
-      ]
-    },
-    {
-      babId: 'bab-3',
-      babTitle: 'BAB III TUJUAN, SASARAN, PROGRAM DAN KEGIATAN',
-      babOrder: 3,
-      isLocked: true,
-      subsections: [
-        { id: 'sub-3-1', code: '3.1', title: 'Telaah Terhadap Kebijakan Nasional dan RPJMD', locked: true,
-          content: '<p>Arah kebijakan pembangunan daerah berfokus pada pemerataan kesejahteraan dan pertumbuhan ekonomi inklusif.</p>' },
-        { id: 'sub-3-2', code: '3.2', title: 'Tujuan dan Sasaran Renja', locked: true,
-          content: `<p>Tujuan utama Renja Tahun ${tahun} adalah mewujudkan tata kelola yang efektif, transparan, dan berdampak bagi masyarakat.</p>` },
-        { id: 'sub-3-3', code: '3.3', title: 'Program dan Kegiatan Prioritas', locked: true,
-          content: '<p>Program prioritas difokuskan pada penguatan fungsi pelayanan publik dan pemeliharaan sarana prasarana penunjang.</p>' },
-      ]
-    },
-    {
-      babId: 'bab-4',
-      babTitle: 'BAB IV RENCANA KERJA DAN PENDANAAN PERANGKAT DAERAH',
-      babOrder: 4,
-      isLocked: true,
-      subsections: [
-        { id: 'sub-4-1', code: '4.1', title: 'Program, Kegiatan, Sub Kegiatan, Indikator Kinerja dan Pagu Indikatif', locked: true,
-          content: '<p>Rincian rencana program, kegiatan, sub kegiatan, indikator keluaran, target, dan pagu indikatif pendanaan disajikan pada matriks terlampir.</p>' },
-      ]
-    },
-    {
-      babId: 'bab-5',
-      babTitle: 'BAB V PENUTUP',
-      babOrder: 5,
-      isLocked: true,
-      subsections: [
-        { id: 'sub-5-1', code: '5.1', title: 'Kaidah Pelaksanaan', locked: true,
-          content: `<p>Renja ${opdName} Tahun Anggaran ${tahun} menjadi acuan mengikat bagi seluruh unit kerja.</p>` },
-        { id: 'sub-5-2', code: '5.2', title: 'Rencana Tindak Lanjut', locked: true,
-          content: '<p>Pengendalian dan evaluasi dilakukan secara berkala tiap triwulan oleh Tim Pengendalian Internal bersama Bapperida.</p>' },
-      ]
-    },
-  ];
-}
-
-// ─── Main seed ───────────────────────────────────────────────────────────────
 async function main() {
   console.log('🌱 Seeding database SIPANDA...');
 
@@ -281,116 +208,7 @@ async function main() {
   }
   console.log('  ✓ Akun OPD dibuat');
 
-  // 9. Dokumen contoh
-  const docsData = [
-    {
-      kodeDoc: 'RNJ-2025-0104',
-      nomorSurat: '050/1182/Renja/Dinkes',
-      nomerRegistrasiArsip: 'ARS-2025-RNJ-0104',
-      jenis: 'Renja Murni', tahun: '2025',
-      judul: 'Renja Murni 2025 - Dinas Kesehatan Kab. Cirebon',
-      subJudul: 'Dokumen Induk Sub Kegiatan Pelayanan Kesehatan Primer',
-      opdId: 'dinkes', opdName: 'Dinas Kesehatan Kab. Cirebon',
-      status: 'Perlu Revisi',
-      catatanRevisi: 'Pagu Sub Kegiatan Pelayanan Rujukan perlu dirasionalisasi ke pagu indikatif TAPD.',
-      verifierName: 'Agus Salim, S.STP', verifierJabatan: 'Analis Kebijakan Muda – Bidang PPEPD',
-      createdById: opdUsers['dinkes']?.id,
-    },
-    {
-      kodeDoc: 'RNJ-P-2024-0031',
-      nomorSurat: '050/842/P-DPUPR/2024',
-      nomerRegistrasiArsip: 'ARS-2024-RNJ-P-0031',
-      jenis: 'Renja Perubahan', tahun: '2024',
-      judul: 'Renja Perubahan TA 2024 - DPUPR',
-      subJudul: 'Penyesuaian Pagu Rekonstruksi Jembatan & Jalan Sumber',
-      opdId: 'dpupr', opdName: 'Dinas Pekerjaan Umum dan Tata Ruang',
-      status: 'Perlu Revisi',
-      catatanRevisi: 'Rincian volume penanganan saluran irigasi pada BAB IV belum sinkron dengan SIPD-RI.',
-      verifierName: 'Siti Rohayati, S.AP', verifierJabatan: 'Analis Kebijakan Pertama – Bidang Infrastruktur',
-      createdById: opdUsers['dpupr']?.id,
-    },
-    {
-      kodeDoc: 'RNJ-2025-0082',
-      nomorSurat: '050/BA-Disdik/2025',
-      nomerRegistrasiArsip: 'ARS-2025-RNJ-0082',
-      jenis: 'Renja Murni', tahun: '2025',
-      judul: 'Renja Murni 2025 - Dinas Pendidikan',
-      subJudul: 'Dokumen Renja Definitif Standar Sarpras & PPPK Guru',
-      opdId: 'disdik', opdName: 'Dinas Pendidikan Kab. Cirebon',
-      status: 'Disetujui',
-      tteNumber: '050/BA-Disdik/2025',
-      verifierName: 'Bambang Irawan, M.Si', verifierJabatan: 'Perencana Ahli Madya – Bidang Sosial Budaya',
-      createdById: opdUsers['disdik']?.id,
-    },
-    {
-      kodeDoc: 'RNJ-2025-0155',
-      nomorSurat: '050/410/DLH/2025',
-      nomerRegistrasiArsip: 'ARS-2025-RNJ-0155',
-      jenis: 'Renja Murni', tahun: '2025',
-      judul: 'Renja Murni 2025 - Dinas Lingkungan Hidup',
-      subJudul: 'Pengelolaan TPA Kubangdeleg & Bank Sampah Terpadu',
-      opdId: 'dlh', opdName: 'Dinas Lingkungan Hidup Kab. Cirebon',
-      status: 'Menunggu Verifikasi',
-      createdById: opdUsers['dlh']?.id,
-    },
-    {
-      kodeDoc: 'RKPD-2025-0012',
-      nomorSurat: '050/220/Disnakertrans/2025',
-      nomerRegistrasiArsip: 'ARS-2025-RKPD-0012',
-      jenis: 'RKPD Murni', tahun: '2025',
-      judul: 'Usulan Program Prioritas RKPD 2025 - Disnakertrans',
-      subJudul: 'Pelatihan Vokasi BLK Cirebon & Penempatan Tenaga Kerja Lokal',
-      opdId: 'disnakertrans', opdName: 'Dinas Ketenagakerjaan',
-      status: 'Menunggu Verifikasi',
-      createdById: opdUsers['disnakertrans']?.id,
-    },
-    {
-      kodeDoc: 'RNJ-2025-BAPP-001',
-      nomorSurat: 'BA.050/144/BAPP/2025',
-      nomerRegistrasiArsip: 'ARS-2025-050-BAPP',
-      jenis: 'Renja Murni', tahun: '2025',
-      judul: 'Renja Definitif Internal Bapperida T.A. 2025',
-      subJudul: 'Dokumen Rencana Kerja Definitif Perangkat Daerah Bapperida',
-      opdId: 'bapperida', opdName: 'Bapperida Kabupaten Cirebon',
-      status: 'Disetujui',
-      tteNumber: 'BA.050/144/BAPP/2025',
-      verifierName: 'Bapperida Kabupaten Cirebon', verifierJabatan: 'Super Admin',
-      createdById: superAdmin.id,
-    },
-  ];
-
-  const createdDocs = [];
-  for (const d of docsData) {
-    const sectionData = generateSections(d.jenis, d.opdName, d.tahun);
-    const doc = await prisma.document.create({
-      data: {
-        ...d,
-        sections: {
-          create: sectionData.map(s => ({
-            babId:      s.babId,
-            babTitle:   s.babTitle,
-            babOrder:   s.babOrder,
-            isLocked:   s.isLocked,
-            subsections: s.subsections,
-          }))
-        }
-      }
-    });
-    createdDocs.push(doc);
-  }
-  console.log(`  ✓ ${createdDocs.length} dokumen contoh dibuat`);
-
-  // 10. Activity logs awal
-  await prisma.activityLog.createMany({
-    data: [
-      { docTitle: 'Renja_Dinkes_2025_Final', detail: 'Diserahkan oleh Dr. Hj. Neneng (Kasubag Ren Dinkes)', tag: 'Dinkes', badge: 'Verifikasi Level 1', icon: 'file-text', color: 'red' },
-      { docTitle: 'Renja_Perubahan_DPUPR', detail: 'Catatan revisi dikirim oleh Staf Bapperida', tag: 'DPUPR', badge: 'Catatan Revisi', icon: 'table', color: 'amber' },
-      { docTitle: 'Renja_Disdik_Murni_2025', detail: 'Disetujui oleh Bapperida (TTE Terbit)', tag: 'Disdik', badge: 'Sah / TTE', icon: 'file-check', color: 'green' },
-      { docTitle: 'Lampiran_Indikator_DLH', detail: 'Menunggu verifikasi bidang teknis', tag: 'DLH', badge: 'Antrean Masuk', icon: 'file-spreadsheet', color: 'blue' },
-    ]
-  });
-  console.log('  ✓ Activity logs awal dibuat');
-
+  // Standard planning templates only; demo/sample documents are intentionally omitted.
   await seedPlanning(prisma);
   console.log('\n✅ Seeding selesai!');
   console.log('\n📋 Akun demo:');

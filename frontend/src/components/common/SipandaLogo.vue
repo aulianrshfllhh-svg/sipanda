@@ -1,18 +1,35 @@
 <template>
-  <div class="flex items-center gap-3">
-    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-        <line x1="12" y1="20" x2="12" y2="10" />
-      </svg>
-    </div>
-    <div>
+  <div class="flex items-center gap-2">
+    <svg
+      class="w-11 h-10 shrink-0"
+      viewBox="540 60 740 570"
+      aria-hidden="true"
+      overflow="hidden"
+    >
+      <defs>
+        <clipPath :id="clipId" clipPathUnits="userSpaceOnUse">
+          <rect x="540" y="60" width="740" height="570" />
+        </clipPath>
+      </defs>
+      <image
+        href="/images/sipanda-logo-20261005.png"
+        width="1800"
+        height="874"
+        :clip-path="`url(#${clipId})`"
+      />
+    </svg>
+    <div class="min-w-0">
       <div class="flex items-center gap-1.5">
-        <span class="font-extrabold text-slate-900 tracking-tight text-lg">SIPANDA</span>
-        <span class="text-[10px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded tracking-wider">PRO</span>
+        <span class="font-extrabold text-slate-900 tracking-tight" :class="compact ? 'text-sm' : 'text-lg'">SIPANDA</span>
       </div>
-      <p class="text-[11px] text-slate-500 font-medium leading-none mt-0.5">Bapperida Kabupaten Cirebon</p>
+      <p class="text-slate-500 font-medium leading-tight mt-0.5" :class="compact ? 'text-[9px]' : 'text-[11px]'">{{ compact ? 'Bapperida Kab. Cirebon' : 'Bapperida Kabupaten Cirebon' }}</p>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useId } from 'vue';
+
+defineProps<{ compact?: boolean }>();
+const clipId = `sipanda-book-${useId()}`;
+</script>

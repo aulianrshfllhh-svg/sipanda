@@ -11,7 +11,7 @@ function fixture() {
  let child=null;
  const tx={
   document:{
-   findUnique:async()=>child,
+   findUnique:async({where})=>where?.id===parent.id?parent:child,
    upsert:async({create,update})=>{
     child=child?{...child,...update}:{...create,id:'annex-1'};
     return child;
@@ -49,4 +49,40 @@ test('automatic annex mirrors its parent until approved, then rebuilds only on e
  await syncLampiran(state.prisma,state.parent,true);
  assert.equal(state.child.sections[0].subsections[0].content,'Perubahan setelah persetujuan');
  assert.equal(state.child.regulation.nomorPeraturan,'17');
+});
+
+test('Renja Perubahan creates a Kepbup annex',async()=>{
+ const state=fixture();
+ state.parent.jenis='Renja Perubahan';
+ const annex=await syncLampiran(state.prisma,state.parent);
+ assert.equal(annex.jenis,'Lampiran Kepbup Perubahan Renja');
+ assert.equal(annex.regulation.tahunPenetapan,'2027');
+});
+
+test('Renstra Murni and Renstra Perubahan create a Perbup annex',async()=>{
+ const state=fixture();
+ state.parent.jenis='Renstra Murni';
+ const annex=await syncLampiran(state.prisma,state.parent);
+ assert.equal(annex.jenis,'Lampiran Perbup Renstra');
+
+ state.parent.jenis='Renstra Perubahan';
+ const changedAnnex=await syncLampiran(state.prisma,state.parent);
+ assert.equal(changedAnnex.jenis,'Lampiran Perbup Renstra');
+});
+
+test('submitting Renja or Renstra automatically submits the same annex and follows verification',async()=>{
+ for (const jenis of ['Renja Murni', 'Renstra', 'Renstra Murni']) {
+  const state=fixture();
+  state.parent.jenis=jenis;
+  const initial=await syncLampiran(state.prisma,state.parent);
+  assert.equal(initial.status,'Draft');
+  for (const status of ['Menunggu Verifikasi', 'Perlu Revisi', 'Menunggu Verifikasi', 'Disetujui']) {
+   state.parent.status=status;
+   const annex=await syncLampiran(state.prisma,state.parent);
+   assert.equal(annex.id,initial.id);
+   assert.equal(annex.kodeDoc,initial.kodeDoc);
+   assert.equal(annex.parentId,state.parent.id);
+   assert.equal(annex.status,status);
+  }
+ }
 });

@@ -2,6 +2,7 @@ export type UserRole = 'admin' | 'staf' | 'opd';
 
 export interface User {
   id: string;
+  username?: string;
   name: string;
   singkatan?: string;
   nip: string;
@@ -13,6 +14,15 @@ export interface User {
   opdId: string;
   opdName: string;
   avatar: string;
+}
+
+export interface UserPreferences {
+  language: 'id';
+  theme: 'light' | 'dark' | 'system';
+  notificationsEnabled: boolean;
+  showUnreadBadge: boolean;
+  timeZone: 'Asia/Jakarta' | 'Asia/Makassar' | 'Asia/Jayapura' | 'UTC';
+  dateFormat: 'd MMM yyyy' | 'dd/MM/yyyy' | 'yyyy-MM-dd';
 }
 
 export interface OPD {
@@ -36,6 +46,9 @@ export interface Subsection {
   title: string;
   locked: boolean;
   content: string;
+  orientation?: 'portrait' | 'landscape';
+  pageBreakBefore?: boolean;
+  legacyOrientationWarning?: boolean;
 }
 
 export interface Section {
@@ -45,10 +58,11 @@ export interface Section {
   subsections: Subsection[];
 }
 
-export interface DocumentItem {
+  export interface DocumentItem {
+    editorRevisions?: Record<string,string>;
   templateId?: string;
   templateSnapshot?: { id: string; nama: string; versi: number; tahun: string };
-  frontMatter?: { preface: string };
+  frontMatter?: { preface?: string; cover?: string };
   regulation?: {
     nomor?: string;
     tanggal?: string;
@@ -61,7 +75,7 @@ export interface DocumentItem {
     periodeMulai?: string;
     periodeAkhir?: string;
   };
-  documentSettings?: { global: { bupati: string; sekretarisDaerah: string }; opd: Record<string,string> };
+  documentSettings?: { global: { bupati: string; sekretarisDaerah: string; logoData?: string }; opd: Record<string,string>; opdRecord?: { id?: string; nama?: string; nomorLampiran?: string } };
   id: string;
   kodeDoc: string;
   nomorSurat: string;
@@ -95,6 +109,7 @@ export interface DocumentItem {
 
 export interface ActivityLog {
   id: string;
+  documentId?: string | null;
   docCode?: string;
   docTitle: string;
   detail: string;
@@ -105,11 +120,52 @@ export interface ActivityLog {
   color: string;
 }
 
-export interface MonitoringItem extends OPD {
-  docsCount: number;
-  renjaMurniStatus: string;
-  renjaPerubahanStatus: string;
-  lampiranStatus: string;
-  rkpdStatus: string;
-  progress: number;
+export interface PlanningComplianceItem {
+  key: string;
+  label: string;
+  year: string;
+  documentId: string | null;
+  documentType: string | null;
+  status: string;
+  tteNumber: string | null;
+  approved: boolean;
+  parentStatus?: string;
+}
+
+export interface MonitoringItem {
+  id: string;
+  kode: string;
+  nama: string;
+  kategori: string | null;
+  completedCount: number;
+  createdCount: number;
+  submittedCount: number;
+  optionalItems: PlanningComplianceItem[];
+  createdRatio: string;
+  requiredCount: number;
+  ratio: string;
+  isComplete: boolean;
+  items: PlanningComplianceItem[];
+}
+
+export interface PlanningComplianceReport {
+  tahun: string;
+  totalOpd: number;
+  completedOpd: number;
+  approvedDocuments: number;
+  submittedDocuments: number;
+  optionalSubmittedDocuments: number;
+  totalDocuments: number;
+  completionRate: number;
+  opds: MonitoringItem[];
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
+  senderName: string | null;
+  opdName: string | null;
 }

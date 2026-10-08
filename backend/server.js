@@ -1,7 +1,14 @@
 // server.js — SIPANDA Backend (Prisma + MySQL)
 // Bapperida Kabupaten Cirebon
 import 'dotenv/config';
-import { ANNEX_DOCUMENT_TYPES, syncLampiran as synchronizeLampiran } from './lampiran.js';
+import { ANNEX_DOCUMENT_TYPES, syncLampiran as synchronizeLampiran, syncLampiranInTransaction } from './lampiran.js';
+import { annexOwnerOpdId } from './annex-scope.js';
+import { completeFormatReport, registerDocumentFormatRoutes } from './document-format.js';
+import {createEditorSessions,registerEditorSessions,chapterRevisions} from './editor-sessions.js';
+import {registerEditorImport} from './editor-import.js';
+import {registerDocumentReview,submissionSnapshot} from './document-review.js';
+import { appendSubsection } from './document-subsections.js';
+import { normalizeSubsectionOrientation } from '../shared/editor-orientation.js';
 import { importDocxSections } from './document-import.js';
 import { sourceDocx, pdfBodyStart } from './annex-source.js';
 import { registerExportRoutes } from './document-export.js';
@@ -10,8 +17,11 @@ import { cleanHtml } from './document-render.js';
 import { normalizeTable } from '../shared/document-tables.js';
 import { registerTableRoutes } from './document-tables.js';
 import { documentSettings, registerSettingsRoutes } from './document-settings.js';
+import { registerNotificationRoutes } from './notification-routes.js';
+import { registerPlanningComplianceRoute } from './planning-compliance.js';
 import { canonicalType, instantiate, ensureTemplates, registerTemplateRoutes } from './templates.js';
 import express from 'express';
+import { parseHTML } from 'linkedom';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
@@ -109,6 +119,8 @@ const RKPD_DOCUMENT_TYPES = ['RKPD', 'RKPD Murni', 'RKPD Perubahan'];
 
 const isSuperAdmin = user => user?.roleKodes?.includes('super_admin') === true;
 const isRkpdDocument = jenis => RKPD_DOCUMENT_TYPES.includes(jenis);
+registerNotificationRoutes(app, prisma, authMiddleware, isSuperAdmin);
+registerPlanningComplianceRoute(app, prisma, authMiddleware, isSuperAdmin);
 
 function denyUnlessSuperAdmin(req, res) {
   if (isSuperAdmin(req.currentUser)) return false;
@@ -150,6 +162,8 @@ async function getDocumentPermissions(user, doc) {
     return { canView: false, canEdit: false, canVerify: false, editableBabIds: [] };
   }
 
+  // Penugasan berlaku untuk OPD dan tahun, sehingga satu staf dapat memverifikasi
+  // semua dokumen OPD tersebut pada tahun yang sama dengan satu penugasan.
   const verificationAssignment = await prisma.penugasanVerifikasi.findUnique({
     where: { userId_opdId_tahun: { userId: user.id, opdId: doc.opdId, tahun: doc.tahun } }
   });
@@ -177,6 +191,11 @@ registerTemplateRoutes(app, prisma, authMiddleware, denyUnlessSuperAdmin);
 registerSettingsRoutes(app, prisma, authMiddleware, isSuperAdmin);
 registerTableRoutes(app, authMiddleware);
 registerExportRoutes(app, prisma, authMiddleware, getDocumentPermissions);
+registerDocumentFormatRoutes(app, prisma, authMiddleware, getDocumentPermissions);
+const editorSessions=createEditorSessions(prisma,getDocumentPermissions);
+registerEditorSessions(app,authMiddleware,editorSessions);
+registerEditorImport(app,authMiddleware);
+registerDocumentReview(app,prisma,authMiddleware,getDocumentPermissions);
 registerMonitoringArchives(app, prisma, authMiddleware, isSuperAdmin, getDocumentPermissions);
 
 // Sections helper: baca dari DocumentSection rows
@@ -188,8 +207,29 @@ function sectionsFromDb(sectionRows) {
       title:       s.babTitle,
       locked:      s.isLocked,
       order:       s.babOrder,
-      subsections: s.subsections,
+      subsections: (s.subsections || []).map(sub => {
+        const migrated = normalizeSubsectionOrientation(sub, html => parseHTML(`<html><body>${html}</body></html>`).document.body);
+        return { ...migrated.subsection, ...(migrated.mixedLegacy ? { legacyOrientationWarning: true } : {}) };
+      }),
     }));
+}
+
+async function migrateLegacySubsectionOrientations(sectionRows) {
+  const migratedRows = [];
+  for (const row of sectionRows) {
+    const subsections = (row.subsections || []).map(sub => {
+      const result = normalizeSubsectionOrientation(sub, html => parseHTML(`<html><body>${html}</body></html>`).document.body);
+      return { ...result.subsection, ...(result.mixedLegacy ? { legacyOrientationWarning: true } : {}) };
+    });
+    if (JSON.stringify(subsections) !== JSON.stringify(row.subsections || [])) {
+      await prisma.documentSection.update({
+        where: { documentId_babId: { documentId: row.documentId, babId: row.babId } },
+        data: { subsections }
+      });
+      migratedRows.push({ ...row, subsections });
+    } else migratedRows.push(row);
+  }
+  return migratedRows;
 }
 
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
@@ -557,8 +597,8 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
     const permissions = await getDocumentPermissions(req.currentUser, doc);
     if (!permissions.canView) return res.status(403).json({ error: 'Dokumen tidak termasuk penugasan Anda' });
-
-    res.json({ ...doc, sections: sectionsFromDb(doc.sections), permissions, documentSettings: await documentSettings(prisma, doc.opdId) });
+    const migratedSections = await migrateLegacySubsectionOrientations(doc.sections);
+    res.json({ ...doc, sections: sectionsFromDb(migratedSections), permissions, editorRevisions:chapterRevisions(doc), documentSettings: await documentSettings(prisma, doc.opdId) });
   } catch (err) {
     res.status(500).json({ error: 'Gagal mengambil dokumen' });
   }
@@ -713,12 +753,15 @@ app.post('/api/documents', authMiddleware, upload.single('file'), async (req, re
 
     // Generate sections template
     let selectedTemplate = null;
-    if ((cara || 'template') === 'template' && !jenis.startsWith('Renstra')) {
+    if ((cara || 'template') === 'template') {
       selectedTemplate = await prisma.template.findFirst({ where: { jenis: canonicalType(jenis), tahun: String(tahun), isActive: true }, orderBy: { versi: 'desc' } });
-      if (!selectedTemplate) return res.status(400).json({ error: `Belum ada template aktif untuk ${jenis} tahun ${tahun}. Hubungi Super Admin untuk menyiapkan template tahun tersebut.` });
+      if (!selectedTemplate) {
+        selectedTemplate = await prisma.template.findFirst({ where: { jenis: canonicalType(jenis), tahun: null, isActive: true }, orderBy: { versi: 'desc' } });
+      }
+      if (!selectedTemplate) return res.status(400).json({ error: `Belum ada template aktif untuk ${jenis} tahun ${tahun}. Hubungi Super Admin untuk menyiapkan template tersebut.` });
     }
     let sectionData = (cara || 'template') === 'template'
-      ? selectedTemplate ? instantiate(selectedTemplate, opd.nama, tahun) : generateDefaultSections(jenis, opd.nama, tahun)
+      ? selectedTemplate ? instantiate(selectedTemplate, opd.nama, tahun, periodeAkhir) : generateDefaultSections(jenis, opd.nama, tahun)
       : [];
     if ((cara || 'template') === 'upload' && req.file && OPD_DOCUMENT_TYPES.includes(jenis)) {
       try {
@@ -809,6 +852,49 @@ app.post('/api/documents', authMiddleware, upload.single('file'), async (req, re
   }
 });
 
+app.post('/api/documents/:id/sections/:babId/subsections', authMiddleware, async (req, res) => {
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id: req.params.id },
+      include: { sections: true }
+    });
+    if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
+
+    const permissions = await getDocumentPermissions(req.currentUser, doc);
+    if (!permissions.canEdit || !permissions.editableBabIds.includes(req.params.babId)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki hak edit pada bab ini' });
+    }
+
+    const sections = sectionsFromDb(doc.sections);
+    const { sections: updatedSections, subsection } = appendSubsection(
+      sections,
+      req.params.babId,
+      req.body?.title,
+      randomUUID()
+    );
+    const updatedBab = updatedSections.find(section => section.id === req.params.babId);
+
+    await editorSessions.save(req.currentUser,doc.id,req.body.editorSessionId,req.body.editorRevisions,[req.params.babId],async tx=>{
+      await tx.documentSection.update({where:{documentId_babId:{documentId:doc.id,babId:req.params.babId}},data:{subsections:updatedBab.subsections}});
+      return tx.document.update({where:{id:doc.id},data:{updatedAt:new Date()}});
+    });
+
+    const updated = await prisma.document.findUnique({
+      where: { id: doc.id },
+      include: { sections: { orderBy: { babOrder: 'asc' } } }
+    });
+    await syncLampiran(updated);
+    res.status(201).json({ subsection, editorRevisions:chapterRevisions(updated) });
+  } catch (err) {
+    if(err.status)return res.status(err.status).json({error:err.message,...err.details});
+    if (err instanceof Error && /Judul sub-bab|Bab dokumen|Struktur sub-bab/.test(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Failed to add document subsection:', err);
+    res.status(500).json({ error: 'Gagal menambahkan sub-bab' });
+  }
+});
+
 // PUT update sections dokumen (autosave)
 app.put('/api/documents/:id', authMiddleware, async (req, res) => {
   const { sections, judul, subJudul, nomorSurat, frontMatter } = req.body;
@@ -854,7 +940,9 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
       if (!permissions.editableBabIds.includes([...doc.sections].sort((a,b)=>a.babOrder-b.babOrder)[0]?.babId)) return res.status(403).json({ error: 'Kata pengantar hanya dapat diedit oleh penyusun BAB I' });
       updateData.frontMatter = {
         preface: cleanHtml(String(frontMatter.preface || '').slice(0,50000), false),
-        cover: typeof frontMatter.cover === 'string' ? cleanHtml(frontMatter.cover.slice(0,50000), false) : doc.frontMatter?.cover || ''
+        cover: typeof frontMatter.cover === 'string'
+          ? cleanHtml(frontMatter.cover.slice(0,50000), false)
+          : doc.frontMatter?.cover || ''
       };
     }
     if (isSuperAdmin(req.currentUser)) {
@@ -863,10 +951,13 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
       if (nomorSurat) updateData.nomorSurat = nomorSurat;
     }
 
+    const saveBabIds=sectionsToUpdate.map(b=>b.id);
+    if(frontMatter!=null&&!saveBabIds.includes([...doc.sections].sort((a,b)=>a.babOrder-b.babOrder)[0]?.babId))saveBabIds.push([...doc.sections].sort((a,b)=>a.babOrder-b.babOrder)[0]?.babId);
+    const updated = await editorSessions.save(req.currentUser,doc.id,req.body.editorSessionId,req.body.editorRevisions,saveBabIds,async tx=>{
     // Update sections jika ada
     if (sectionsToUpdate.length > 0) {
       for (const bab of sectionsToUpdate) {
-        await prisma.documentSection.upsert({
+        await tx.documentSection.upsert({
           where: { documentId_babId: { documentId: doc.id, babId: bab.id } },
           create: {
             documentId: doc.id,
@@ -880,17 +971,19 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
       }
     }
 
-    const updated = await prisma.document.update({
+    return tx.document.update({
       where: { id: doc.id }, data: updateData,
       include: { sections: { orderBy: { babOrder: 'asc' } } }
+    });
     });
 
     // Sync lampiran jika ada
     await syncLampiran(updated);
 
     const updatedPermissions = await getDocumentPermissions(req.currentUser, updated);
-    res.json({ ...updated, sections: sectionsFromDb(updated.sections), permissions: updatedPermissions });
+    res.json({ ...updated, sections: sectionsFromDb(updated.sections), permissions: updatedPermissions, editorRevisions:chapterRevisions(updated) });
   } catch (err) {
+    if(err.status)return res.status(err.status).json({error:err.message,...err.details});
     console.error(err);
     res.status(500).json({ error: 'Gagal menyimpan dokumen' });
   }
@@ -901,7 +994,7 @@ app.post('/api/documents/:id/submit', authMiddleware, async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id },
-      include: { sections: true }
+      include: { sections: { orderBy: { babOrder: 'asc' } } }
     });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
     if (req.currentUser.role !== 'opd' || req.currentUser.opdId !== doc.opdId || !OPD_DOCUMENT_TYPES.includes(doc.jenis)) {
@@ -910,71 +1003,60 @@ app.post('/api/documents/:id/submit', authMiddleware, async (req, res) => {
     if (!['Draft', 'Perlu Revisi'].includes(doc.status)) {
       return res.status(400).json({ error: 'Status dokumen tidak dapat diajukan' });
     }
-
-    // Validasi sections tidak kosong
-    if (doc.cara === 'template') {
-      const emptySections = [];
-      for (const bab of doc.sections) {
-        const subs = Array.isArray(bab.subsections) ? bab.subsections : [];
-        for (const sub of subs) {
-          const text = (sub.content || '').replace(/<[^>]*>?/gm, '').trim();
-          if (text.length < 10 || /^Petunjuk:/i.test(text)) emptySections.push(`${sub.code} ${sub.title}`);
-        }
-      }
-      if (emptySections.length > 0) {
-        return res.status(400).json({
-          error: 'Dokumen belum lengkap! Bagian wajib masih kosong:',
-          emptySections
-        });
-      }
+    const formatReport = await completeFormatReport(doc, await documentSettings(prisma,doc.opdId));
+    const emptySections = formatReport.issues.filter(i=>i.level==='required').map(i=>i.message);
+    if (emptySections.length) {
+      return res.status(400).json({
+        error: 'Dokumen belum lengkap. Lengkapi berkas atau isi dokumen sebelum submit:',
+        emptySections, formatReport
+      });
     }
 
-    const updated = await prisma.document.update({
-      where: { id: doc.id },
-      data: { status: 'Menunggu Verifikasi', updatedAt: new Date() },
-      include: { sections: { orderBy: { babOrder: 'asc' } } }
+    const snapshot=await submissionSnapshot({...doc,documentSettings:await documentSettings(prisma,doc.opdId)});
+    const updated=await prisma.$transaction(async tx=>{
+      await tx.$queryRaw`SELECT id FROM documents WHERE id=${doc.id} FOR UPDATE`;
+      const latest=await tx.document.findUnique({where:{id:doc.id},include:{sections:{orderBy:{babOrder:'asc'}}}});
+      if(!['Draft','Perlu Revisi'].includes(latest.status))throw Object.assign(new Error('Status dokumen tidak dapat diajukan'),{status:400});
+      if(JSON.stringify(chapterRevisions(latest))!==JSON.stringify(chapterRevisions(doc))||JSON.stringify([latest.filePath,latest.fileName,latest.updatedAt])!==JSON.stringify([doc.filePath,doc.fileName,doc.updatedAt]))throw Object.assign(new Error('Isi dokumen berubah saat pemeriksaan. Periksa dan ajukan kembali.'),{status:409});
+      const last=await tx.documentVersion.aggregate({where:{documentId:doc.id},_max:{versi:true}});
+      await tx.documentVersion.create({data:{documentId:doc.id,versi:(last._max.versi||0)+1,sections:snapshot,savedBy:req.currentUser.name,keterangan:'Pengajuan untuk verifikasi'}});
+      const submitted=await tx.document.update({where:{id:doc.id},data:{status:'Menunggu Verifikasi',updatedAt:new Date()},include:{sections:{orderBy:{babOrder:'asc'}}}});
+      await syncLampiranInTransaction(tx,submitted);
+      await tx.activityLog.create({
+        data: {
+          documentId: doc.id,
+          docTitle: doc.judul,
+          detail: `Diajukan untuk verifikasi oleh ${req.currentUser?.name} (${doc.opdName})`,
+          tag: doc.opdName,
+          badge: 'Verifikasi Level 1', icon: 'send', color: 'amber'
+        }
+      });
+      return submitted;
     });
 
-    await prisma.activityLog.create({
-      data: {
-        documentId: doc.id,
-        docTitle: doc.judul,
-        detail: `Diajukan untuk verifikasi oleh ${req.currentUser?.name} (${doc.opdName})`,
-        tag: doc.opdName.split(' ')[1] || 'OPD',
-        badge: 'Verifikasi Level 1', icon: 'send', color: 'amber'
-      }
-    });
-
-    await syncLampiran(updated);
     res.json({ success: true, document: { ...updated, sections: sectionsFromDb(updated.sections) } });
   } catch (err) {
+    if(err.status)return res.status(err.status).json({error:err.message});
     console.error(err);
     res.status(500).json({ error: 'Gagal mengajukan dokumen' });
   }
 });
 
 app.get('/api/annexes', authMiddleware, async (req, res) => {
-  const { opdId, jenis, tahun } = req.query;
+  const { jenis, tahun } = req.query;
   const user = req.currentUser;
   try {
+    const ownerOpdId = annexOwnerOpdId(user);
+    if (!ownerOpdId || !['opd', 'staf', 'admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Perangkat daerah akun tidak tersedia' });
+    }
     const legacyAnnexType = 'Lampiran Renja';
     const parentWhere = {
       isLampiranOtomatis: false,
       jenis: { in: OPD_DOCUMENT_TYPES },
       ...(tahun ? { tahun: String(tahun) } : {})
     };
-    if (opdId) parentWhere.opdId = String(opdId);
-    if (user.role === 'opd') {
-      parentWhere.opdId = user.opdId;
-    } else if (user.role === 'staf') {
-      const assignments = await prisma.penugasanVerifikasi.findMany({
-        where: { userId: user.id, ...(tahun ? { tahun: String(tahun) } : {}) },
-        select: { opdId: true }
-      });
-      parentWhere.opdId = { in: assignments.map(item => item.opdId) };
-    } else if (user.role !== 'admin' && !isSuperAdmin(user)) {
-      return res.status(403).json({ error: 'Akses lampiran ditolak' });
-    }
+    parentWhere.opdId = ownerOpdId;
 
     // Backfill annexes from eligible parents so records created by earlier server versions appear too.
     const parentsToCheck = await prisma.document.findMany({
@@ -997,18 +1079,13 @@ app.get('/api/annexes', authMiddleware, async (req, res) => {
     const where = {
       isLampiranOtomatis: true,
       jenis: { in: [...ANNEX_DOCUMENT_TYPES, legacyAnnexType] },
-      ...(opdId ? { opdId: String(opdId) } : {}),
       ...(tahun ? { tahun: String(tahun) } : {})
     };
     if (jenis) {
       if (![...ANNEX_DOCUMENT_TYPES, legacyAnnexType].includes(String(jenis))) return res.json([]);
       where.jenis = String(jenis);
     }
-    if (user.role === 'opd') {
-      where.opdId = user.opdId;
-    } else if (user.role === 'staf') {
-      where.opdId = parentWhere.opdId;
-    }
+    where.opdId = ownerOpdId;
 
     const annexes = await prisma.document.findMany({
       where,
@@ -1035,7 +1112,9 @@ app.get('/api/annexes', authMiddleware, async (req, res) => {
         : doc.jenis,
       opdName: doc.opd?.nama || doc.opdName,
       parent: {
+        id: parentRecords.get(doc.parentId)?.id,
         status: parentRecords.get(doc.parentId)?.status,
+        jenis: parentRecords.get(doc.parentId)?.jenis,
         sourceReady: parentRecords.get(doc.parentId)?.cara === 'upload'
           ? /\.(pdf|docx)$/i.test(parentRecords.get(doc.parentId)?.filePath || '')
           : (parentRecords.get(doc.parentId)?.sections.length || 0) > 0,
@@ -1045,7 +1124,7 @@ app.get('/api/annexes', authMiddleware, async (req, res) => {
       sections: sectionsFromDb(doc.sections),
       permissions: await getDocumentPermissions(user, doc)
     })));
-    res.json(result.filter(doc => doc.permissions.canView));
+    res.json(result.filter(doc => doc.permissions.canView && doc.parent.jenis !== 'Renstra Perubahan'));
   } catch (err) {
     console.error('Failed to list generated annexes:', err);
     res.status(500).json({ error: 'Gagal mengambil daftar lampiran' });
@@ -1190,7 +1269,7 @@ app.put('/api/documents/:id/file', authMiddleware, upload.single('file'), async 
           documentId: doc.id,
           docTitle: doc.judul,
           detail: `${repairingMissingDraft ? 'Berkas DOCX Renja dilengkapi' : 'Berkas perbaikan diunggah'} oleh ${req.currentUser.name} (${doc.opdName})`,
-          tag: doc.opdName.split(' ')[1] || 'OPD',
+          tag: doc.opdName,
           badge: repairingMissingDraft ? 'Berkas DOCX' : 'Berkas Revisi',
           icon: 'upload',
           color: 'blue'
@@ -1254,6 +1333,7 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
+    if (doc.isLampiranOtomatis) return res.status(400).json({ error: 'Lampiran otomatis mengikuti proses verifikasi dokumen induk.' });
     if (doc.createdById === user.id) {
       return res.status(403).json({ error: 'Penyusun dokumen tidak dapat menyetujui dokumennya sendiri' });
     }
@@ -1273,7 +1353,8 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
       ? (doc.tteNumber || `050/BA-${doc.opdId.toUpperCase()}/${doc.tahun}`)
       : null;
 
-    const updated = await prisma.document.update({
+    const updated = await prisma.$transaction(async tx => {
+    const result = await tx.document.update({
       where: { id: doc.id },
       data: {
         status,
@@ -1285,9 +1366,9 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
       },
       include: { sections: { orderBy: { babOrder: 'asc' } } }
     });
-
-    // Rekam ke tabel verifications
-    await prisma.verification.create({
+    if(status==='Perlu Revisi')await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen dikembalikan untuk revisi',message:`${doc.judul}: ${catatanRevisi}. Periksa komentar Terbuka di editor.`}});
+    await syncLampiranInTransaction(tx,result);
+    await tx.verification.create({
       data: {
         documentId: doc.id,
         verifierId: user.id,
@@ -1295,22 +1376,22 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
         tteNumber
       }
     });
-
-    await prisma.activityLog.create({
+    await tx.activityLog.create({
       data: {
         documentId: doc.id,
         docTitle: doc.judul,
         detail: status === 'Disetujui'
           ? `Disetujui oleh ${user.name} (BA Sah & TTE Terbit)`
           : `Catatan revisi dikirim oleh ${user.name}: "${catatanRevisi?.substring(0, 60)}..."`,
-        tag: doc.opdName.split(' ')[1] || 'OPD',
+        tag: doc.opdName,
         badge: status === 'Disetujui' ? 'Sah / TTE' : 'Perlu Revisi',
         icon: status === 'Disetujui' ? 'check-circle' : 'alert-circle',
         color: status === 'Disetujui' ? 'green' : 'red'
       }
     });
+    return result;
+    });
 
-    await syncLampiran(updated);
     res.json({ success: true, document: { ...updated, sections: sectionsFromDb(updated.sections) } });
   } catch (err) {
     console.error(err);
@@ -1340,9 +1421,23 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
         return res.status(403).json({ error: 'Akses statistik ditolak' });
       }
 
-      const scopedDocuments = await prisma.document.findMany({ where: documentFilter, select: { id: true } });
+      const scopedDocuments = await prisma.document.findMany({
+        where: {
+          AND: [documentFilter, {
+            jenis: { in: OPD_DOCUMENT_TYPES },
+            opdId: { not: 'bapperida' },
+            parentId: null,
+            isLampiranOtomatis: false,
+            status: { in: ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui'] }
+          }]
+        },
+        select: { id: true, opdName: true }
+      });
       const activities = await prisma.activityLog.findMany({
-        where: isSuperAdmin(user) ? {} : { documentId: { in: scopedDocuments.map(doc => doc.id) } },
+        where: {
+          documentId: { in: scopedDocuments.map(doc => doc.id) },
+          badge: { in: ['Verifikasi Level 1', 'Perlu Revisi', 'Sah / TTE', 'Berkas Revisi'] }
+        },
         orderBy: { createdAt: 'desc' }, take: 6
       });
 
@@ -1363,7 +1458,11 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
         role: user.role, totalUsulan: total,
         menungguTelaah: menunggu, perluRevisi: revisi, disetujui,
         persenSah: total > 0 ? ((disetujui / total) * 100).toFixed(1) : '0',
-        activities: activities.map(a => ({ ...a, timestamp: formatRelativeTime(a.createdAt) }))
+        activities: activities.map(a => ({
+          ...a,
+          tag: scopedDocuments.find(doc => doc.id === a.documentId)?.opdName || a.tag,
+          timestamp: formatRelativeTime(a.createdAt)
+        }))
       });
     } else {
       // OPD
@@ -1388,60 +1487,6 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal mengambil statistik' });
-  }
-});
-
-// Monitoring semua OPD
-app.get('/api/stats/monitoring', authMiddleware, async (req, res) => {
-  const tahun = req.query.tahun || '2025';
-  const user = req.currentUser;
-  if (!isSuperAdmin(user) && user.role !== 'staf') {
-    return res.status(403).json({ error: 'Monitoring OPD hanya tersedia untuk pegawai Bapperida' });
-  }
-  try {
-    let assignedOpdIds;
-    if (!isSuperAdmin(user)) {
-      const assignments = await prisma.penugasanVerifikasi.findMany({
-        where: { userId: user.id, tahun: String(tahun) }, select: { opdId: true }
-      });
-      assignedOpdIds = assignments.map(assignment => assignment.opdId);
-    }
-    const opds = await prisma.opd.findMany({
-      where: { isActive: true, ...(assignedOpdIds ? { id: { in: assignedOpdIds } } : {}) },
-      orderBy: { nomorUrut: 'asc' }
-    });
-    const docs = await prisma.document.findMany({
-      where: {
-        tahun: String(tahun),
-        ...(assignedOpdIds ? { opdId: { in: assignedOpdIds }, jenis: { notIn: RKPD_DOCUMENT_TYPES } } : {})
-      }
-    });
-
-    const result = opds.map(opd => {
-      const opdDocs = docs.filter(d => d.opdId === opd.id);
-      const renjaMurni     = opdDocs.find(d => d.jenis === 'Renja Murni');
-      const renjaPerubahan = opdDocs.find(d => d.jenis === 'Renja Perubahan');
-      const lampiran       = opdDocs.find(d => d.jenis === 'Lampiran Renja');
-      const rkpd           = opdDocs.find(d => d.jenis === 'RKPD Murni');
-      let done = 0;
-      if (renjaMurni?.status     === 'Disetujui') done++;
-      if (renjaPerubahan?.status === 'Disetujui') done++;
-      if (lampiran?.status       === 'Disetujui') done++;
-      if (rkpd?.status           === 'Disetujui') done++;
-      return {
-        ...opd,
-        docsCount: opdDocs.length,
-        renjaMurniStatus:     renjaMurni     ? renjaMurni.status     : 'Belum Ada',
-        renjaPerubahanStatus: renjaPerubahan ? renjaPerubahan.status : 'Belum Ada',
-        lampiranStatus:       lampiran       ? lampiran.status       : 'Belum Ada',
-        rkpdStatus:           rkpd           ? rkpd.status           : 'Belum Ada',
-        progress: Math.round((done / 4) * 100),
-      };
-    });
-
-    res.json({ tahun, totalOpd: opds.length, opds: result });
-  } catch (err) {
-    res.status(500).json({ error: 'Gagal mengambil monitoring' });
   }
 });
 

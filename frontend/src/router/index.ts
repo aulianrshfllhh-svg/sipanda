@@ -8,8 +8,9 @@ import ManajemenPenugasan from '../views/ManajemenPenugasan.vue';
 import DocumentEditor from '../components/editor/DocumentEditor.vue';
 
 const routes = [
-  { path: '/template', name: 'TemplateManager', component: () => import('../views/TemplateManager.vue') },
-  { path: '/pengaturan', name: 'DocumentSettings', component: () => import('../views/DocumentSettings.vue') },
+  { path: '/pengaturan', name: 'AppSettings', component: () => import('../views/AppSettings.vue') },
+  { path: '/pengaturan/dokumen', redirect: { name: 'AppSettings', query: { bagian: 'dokumen' } } },
+  { path: '/template', redirect: { name: 'AppSettings', query: { bagian: 'template' } } },
   {
     path: '/',
     name: 'Dashboard',
@@ -64,6 +65,14 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+});
+
+router.beforeEach(to => {
+  if (to.name === 'Login' || localStorage.getItem('sipanda_token')) return true;
+  return {
+    name: 'Login',
+    query: { redirect: to.fullPath }
+  };
 });
 
 export default router;

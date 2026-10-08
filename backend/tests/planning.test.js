@@ -5,11 +5,24 @@ import {normalizeTable,calculatedRows,money,tableColumns,tableNeedsLandscape} fr
 import {cleanHtml,renderDocument} from '../document-render.js';
 
 test('specified year/type outlines and placeholders',()=>{
- assert.equal(seedSections('Renja Murni','2027').length,6);
+ const renja2027=seedSections('Renja Murni','2027');
+ assert.equal(renja2027.length,5);
+ assert.match(renja2027[0].title,/PENDAHULUAN/);
+ assert.match(renja2027[1].title,/HASIL EVALUASI RENJA/);
+ assert.match(renja2027[2].title,/TUJUAN DAN SASARAN/);
+ assert.match(renja2027[3].title,/RENCANA KERJA DAN PENDANAAN/);
+ assert.match(renja2027[4].title,/PENUTUP/);
+ assert.deepEqual(renja2027[2].subsections.slice(3).map(sub=>sub.title),['Kinerja Penyelenggaraan Bidang Urusan','Indikator Kinerja Utama','Indikator Kinerja Kunci']);
+ assert.equal(seedSections('Renja Perubahan','2027').length,6);
  assert.equal(seedSections('Renja Murni','2026').length,5);
  assert.ok(SEED_TEMPLATES.some(template=>template.jenis==='Renja Perubahan'&&template.tahun==='2026'&&template.isActive));
  assert.equal(seedSections('Renja Perubahan','2026')[1].title,'BAB II EVALUASI PERUBAHAN RENJA SAMPAI DENGAN TRIWULAN II TAHUN BERKENAAN');
  assert.equal(seedSections('RKPD Murni','2027').length,7);
+ for (const jenis of ['RKPD Murni','RKPD Perubahan']) {
+  const template=SEED_TEMPLATES.find(item=>item.jenis===jenis&&item.tahun==='2026'&&item.isActive);
+  assert.ok(template);
+  assert.equal(instantiate(template,'Bapperida Kabupaten Cirebon','2026').length,7);
+ }
  assert.equal(seedSections('RKPD Perubahan','2027')[1].title,'BAB II EVALUASI HASIL TRIWULAN II TAHUN BERKENAAN');
  assert.equal(seedSections('Renja Perubahan','2027')[1].title,'BAB II EVALUASI RENJA SAMPAI DENGAN TRIWULAN II TAHUN BERKENAAN');
  assert.deepEqual(seedSections('RPJMD','2027'),[]);
@@ -35,10 +48,10 @@ test('rancangan Renja table is emitted on a landscape page',()=>{
  sections[3].subsections[0].tables=[{id:'renja-landscape',type:'renja',rows:[]}];
  const doc={opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Renja Murni',judul:'Renja Mundu',sections};
  const html=renderDocument(doc,{opd:{nama:'Kecamatan Mundu'},global:{}});
- assert.match(html,/data-landscape="true"/);
+ assert.match(html,/class="doc-section-break" data-orientation="landscape"[\s\S]*?JUMLAH[\s\S]*?class="doc-section-break" data-orientation="portrait"/);
  assert.match(html,/JUMLAH/);
- assert.match(html,/\.paper\{[^}]*height:297mm;padding:20mm/);
- assert.match(html,/\.page-body\{height:257mm/);
+ assert.match(html,/\.paper\{[^}]*width:215mm;height:330mm;padding:20mm/);
+ assert.match(html,/\.page-body\{height:290mm/);
  assert.match(html,/footer\{[^}]*left:20mm;right:20mm/);
 });
 test('wide imported tables use an isolated landscape page and autofit layout',()=>{
@@ -47,8 +60,8 @@ test('wide imported tables use an isolated landscape page and autofit layout',()
  const sections=[{id:'bab-i',title:'BAB I',subsections:[{id:'sub-1',code:'1.1',title:'Subbab',content:`<p>Sebelum tabel.</p><p class="doc-caption">Tabel 1.1 - Contoh lebar</p>${table}<p>Sesudah tabel.</p>`,tables:[]}]}];
  const doc={opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Renja Murni',judul:'Renja Mundu',sections};
  const html=renderDocument(doc,{opd:{nama:'Kecamatan Mundu',alamat:''},global:{}});
- assert.match(html,/data-landscape="true">[\s\S]*?Tabel 1\.1 Contoh lebar[\s\S]*?<table(?:\s|>)/);
- assert.match(html,/data-landscape="false">[\s\S]*?Sesudah tabel/);
+ assert.match(html,/class="doc-section-break" data-orientation="landscape"[\s\S]*?Tabel 1\.1 Contoh lebar[\s\S]*?<table(?:\s|>)[\s\S]*?class="doc-section-break" data-orientation="portrait"/);
+ assert.match(html,/class="doc-section-break" data-orientation="portrait"[\s\S]*?Sesudah tabel/);
  assert.match(html,/table-layout:auto/);
  assert.equal(tableNeedsLandscape({rows:[{cells:['a','b','c','d','e','f']}]}),false);
  assert.equal(tableNeedsLandscape({rows:[{cells:Array(6).fill('extraordinarilylongunbreakableword')}]}),true);
@@ -58,8 +71,8 @@ test('wide tables in automatic annexes are placed on landscape pages',()=>{
  const cells=Array.from({length:8},(_,index)=>`<td>Isi ${index+1}</td>`).join('');
  const sections=[{id:'bab-i',title:'BAB I',subsections:[{id:'sub-1',code:'1.1',title:'Subbab',content:`<p>Sebelum tabel.</p><p class="doc-caption">Tabel 1.1 - Contoh lebar</p><table><thead><tr>${columns}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p>Sesudah tabel.</p>`,tables:[]}]}];
  const html=renderDocument({opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Lampiran Perbup Renja',isLampiranOtomatis:true,judul:'Lampiran',sections},{opdRecord:{nama:'Kecamatan Mundu'},opd:{},global:{bupati:'IMRON'}});
- assert.match(html,/data-landscape="true">[\s\S]*?Tabel 1\.1 Contoh lebar[\s\S]*?<table(?:\s|>)/);
- assert.match(html,/data-landscape="false">[\s\S]*?Sesudah tabel/);
+ assert.match(html,/class="doc-section-break" data-orientation="landscape"[\s\S]*?Tabel 1\.1 Contoh lebar[\s\S]*?<table(?:\s|>)[\s\S]*?class="doc-section-break" data-orientation="portrait"/);
+ assert.match(html,/class="doc-section-break" data-orientation="portrait"[\s\S]*?Sesudah tabel/);
 });
 test('preview strips active HTML and outbound images',()=>{
  const result=cleanHtml('<script>alert(1)</script><p onclick="x()">Safe <b>bold</b></p><img src="http://127.0.0.1/private" onerror="x()">');
@@ -90,7 +103,7 @@ test('generated annex tables use 12pt text on a landscape F4 page',()=>{
  sections[3].subsections[0].tables=[{id:'annex-wide',type:'renja',rows:[]}];
  const doc={opdName:'Kecamatan Mundu',tahun:'2027',jenis:'Lampiran Perbup Renja',isLampiranOtomatis:true,judul:'Lampiran',sections};
  const html=renderDocument(doc,{opdRecord:{nama:'Kecamatan Mundu',nomorLampiran:'LIV'},opd:{},global:{bupati:'IMRON'}});
- assert.match(html,/data-landscape="true"/);
+ assert.match(html,/class="doc-section-break" data-orientation="landscape"[\s\S]*?<table style="font-size:12pt">[\s\S]*?class="doc-section-break" data-orientation="portrait"/);
  assert.match(html,/<table style="font-size:12pt">/);
  assert.match(html,/@page f4-landscape\{size:330mm 215mm;margin:0\}/);
 });

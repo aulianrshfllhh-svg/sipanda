@@ -64,6 +64,12 @@ try {
           babOrder: 1,
           isLocked: false,
           subsections: [{ id: 'sub-1', code: '1.1', title: 'Latar Belakang', content: '<p>Isi uji.</p>' }]
+        }, {
+          id: 'section-test-2', babId: 'bab-2', babTitle: 'BAB II GAMBARAN UMUM', babOrder: 2, isLocked: false,
+          subsections: [{ id: 'sub-2-1', code: '2.1', title: 'Kondisi Umum', content: '<p>Isi uji bab dua.</p>' }]
+        }, {
+          id: 'section-test-3', babId: 'bab-3', babTitle: 'BAB III TUJUAN DAN SASARAN', babOrder: 3, isLocked: false,
+          subsections: [{ id: 'sub-3-4', code: '3.4', title: 'Kinerja Penyelenggaraan Bidang Urusan', content: '<p>Isi uji bab tiga.</p>' }]
         }]
       }
     }

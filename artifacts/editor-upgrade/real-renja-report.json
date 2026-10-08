@@ -1,0 +1,20 @@
+{
+  "source": "Renja asli Kecamatan Depok 2027 (berkas unggahan lokal)",
+  "sha256": "4c80eb045b780dce77ecd0109d73b5925f816f2a0bc8cbd19504d246634859b4",
+  "chapters": 6,
+  "originalTables": 11,
+  "pages": 100,
+  "landscapePages": 64,
+  "overflow": 0,
+  "conversionWarnings": [
+    "Elemen sumber tidak didukung dan dilewati: v:stroke",
+    "Elemen sumber tidak didukung dan dilewati: v:line",
+    "Elemen sumber tidak didukung dan dilewati: {urn:schemas-microsoft-com:office:office}lock",
+    "Gaya paragraf sumber tidak didukung: 'toc 1' (Style ID: TOC1)",
+    "Gaya paragraf sumber tidak didukung: 'toc 2' (Style ID: TOC2)",
+    "Gaya paragraf sumber tidak didukung: 'List Paragraph' (Style ID: ListParagraph)",
+    "Catatan kaki, komentar, header dan footer sumber tidak menjadi bagian isi BAB. Periksa naskah sumber."
+  ],
+  "pdfAndEditableDocx": "PASS",
+  "originalUnmodified": true
+}

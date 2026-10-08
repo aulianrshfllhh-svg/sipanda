@@ -26,7 +26,7 @@ const perangkatDaerah = [
   ['dpmptsp', 'Dinas Penanaman Modal dan Pelayanan Terpadu Satu Pintu', 'DPMPTSP'],
   ['dpmd', 'Dinas Pemberdayaan Masyarakat dan Desa', 'DPMD'],
   ['bkpsdm', 'Badan Kepegawaian dan Pengembangan Sumber Daya Manusia', 'BKPSDM'],
-  ['bapperida', 'Badan Perencanaan Pembangunan, Penelitian dan Pengembangan Daerah', 'Bapperida'],
+  ['bapperida', 'Badan Perencanaan Pembangunan, Riset, dan Inovasi Daerah', 'Bapperida'],
   ['bkad', 'Badan Keuangan dan Aset Daerah', 'BKAD'],
   ['bapenda', 'Badan Pendapatan Daerah', 'Bapenda'],
   ['kesbangpol', 'Badan Kesatuan Bangsa dan Politik', 'Kesbangpol'],

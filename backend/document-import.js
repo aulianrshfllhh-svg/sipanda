@@ -51,11 +51,12 @@ function isUppercaseTitle(text) {
     /^[A-ZÀ-Ý\d\s.,:;()/'’&-]+$/.test(normalized);
 }
 
-async function attachSourceColumnWidths(filePath, html) {
-  const zip = await JSZip.loadAsync(await readFile(filePath));
+export async function attachSourceColumnWidths(filePath, html, {headers=false}={}) {
+  const zip = await JSZip.loadAsync(Buffer.isBuffer(filePath)?filePath:await readFile(filePath));
   const documentXml = await zip.file('word/document.xml')?.async('string');
   if (!documentXml) return html;
   const xmlDocument = new DOMParser().parseFromString(documentXml, 'application/xml');
+  const sourceTables=Array.from(xmlDocument.getElementsByTagName('w:tbl'));
   const gridWidths = Array.from(xmlDocument.getElementsByTagName('w:tbl')).map(table => {
     const grid = table.getElementsByTagName('w:tblGrid')[0];
     return grid ? Array.from(grid.getElementsByTagName('w:gridCol'))
@@ -64,6 +65,17 @@ async function attachSourceColumnWidths(filePath, html) {
   });
   const { document } = parseHTML(`<html><body>${html}</body></html>`);
   [...document.querySelectorAll('table')].forEach((table, index) => {
+    if(headers&&!table.querySelector('thead')){
+      const sourceRows=Array.from(sourceTables[index]?.getElementsByTagName('w:tr')||[]).filter(row=>row.parentNode===sourceTables[index]);
+      const rows=[...table.querySelectorAll('tr')].filter(row=>row.closest('table')===table);
+      const head=document.createElement('thead');
+      for(let j=0;j<sourceRows.length&&j<rows.length;j++){
+        const flag=sourceRows[j].getElementsByTagName('w:tblHeader')[0];
+        if(!flag||/^(0|false|off)$/.test(flag.getAttribute('w:val')||''))break;
+        head.append(rows[j]);
+      }
+      if(head.children.length)table.insertBefore(head,table.firstChild);
+    }
     const widths = gridWidths[index];
     if (!widths?.length || table.querySelector('colgroup')) return;
     const columnCount = Math.max(0, ...[...table.querySelectorAll('tr')].map(row =>

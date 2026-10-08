@@ -1,340 +1,252 @@
 <template>
-  <div class="space-y-6">
-    <!-- Welcome Header & Quick Action Banner -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+  <div class="space-y-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
-            Selamat Datang di SIPANDA, {{ store.currentUser?.name }} 👋
-          </h1>
-        </div>
-        <p class="text-xs text-slate-500 mt-1">
-          Organisasi Perangkat Daerah Kabupaten Cirebon • {{ store.currentUser?.opdName }}
-        </p>
-
-        <!-- Status Badges -->
-        <div class="flex flex-wrap items-center gap-2.5 mt-2.5">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-            <Calendar class="w-3.5 h-3.5" />
-            <span>Tahun Anggaran {{ store.selectedTahun }} (Renja Murni)</span>
-          </span>
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-            <Clock class="w-3.5 h-3.5 text-red-500" />
-            <span>Tersisa 4 Hari Kalender (Tenggat: 25 April {{ store.selectedTahun }})</span>
-          </span>
-        </div>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Selamat Datang di SIPANDA</h1>
+        <p class="mt-1 text-xs text-slate-500"><span class="mr-1 text-slate-400">›</span>{{ store.currentUser?.opdName || 'Perangkat Daerah Kabupaten Cirebon' }}</p>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="flex items-center gap-2.5">
+      <div class="flex flex-wrap items-center gap-2">
         <button
-          @click="showGuidance = true"
-          class="flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs"
+          @click="openVerifierNotes"
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
         >
-          <BookOpen class="w-4 h-4 text-slate-500" />
-          <span>Panduan Penyusunan</span>
-        </button>
-        <button
-          @click="store.showCreateModal = true"
-          class="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shadow-blue-500/20"
-        >
-          <Plus class="w-4 h-4" />
-          <span>+ Buat Dokumen Baru</span>
+          <MessageSquare class="h-3.5 w-3.5 text-amber-700" />
+          <span>Catatan Verifikator</span>
+          <span class="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-800">{{ revisionCount }}</span>
         </button>
       </div>
     </div>
 
-    <!-- 4 Metric Cards (White Uniform Cards: Label + Number Only) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- 1. Total Dokumen -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Dokumen</span>
-          <FileText class="w-4 h-4 text-blue-600" />
+    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4">
+      <div class="flex min-h-[104px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Total Dokumen</span>
+          <span class="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50">
+            <FileText class="h-3.5 w-3.5 text-blue-600" />
+          </span>
         </div>
-        <div>
-          <div class="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {{ opdDocs.length }} <span class="text-sm font-medium text-slate-500">Dokumen</span>
-          </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-2xl font-extrabold tracking-tight text-slate-900">{{ opdDocs.length }}</span>
+          <span class="text-[11px] text-slate-500">Dokumen</span>
         </div>
-      </div>
-
-      <!-- 2. Sedang Berjalan / Draf -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Sedang Berjalan / Draf</span>
-          <span class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Draf</span>
-        </div>
-        <div>
-          <div class="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {{ drafCount }} <span class="text-sm font-medium text-slate-500">Dokumen</span>
-          </div>
+        <div class="h-1 overflow-hidden rounded-full bg-blue-100">
+          <div class="h-full rounded-full bg-blue-600" :style="{ width: opdDocs.length ? '100%' : '0%' }"></div>
         </div>
       </div>
 
-      <!-- 3. Menunggu Verifikasi -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Menunggu Verifikasi</span>
-          <span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Review</span>
+      <div class="flex min-h-[104px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Sedang Berjalan</span>
+          <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Draf</span>
         </div>
-        <div>
-          <div class="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {{ waitingCount }} <span class="text-sm font-medium text-slate-500">Dokumen</span>
-          </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-2xl font-extrabold tracking-tight text-slate-900">{{ drafCount }}</span>
+          <span class="text-[11px] text-slate-500">Dokumen</span>
+        </div>
+        <div class="h-1 overflow-hidden rounded-full bg-indigo-100">
+          <div class="h-full rounded-full bg-slate-600" :style="{ width: progressWidth(drafCount) }"></div>
         </div>
       </div>
 
-      <!-- 4. Disetujui & Terbit BA -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Disetujui & Terbit BA</span>
-          <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Sah</span>
+      <div class="flex min-h-[104px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Menunggu Verifikasi</span>
+          <span class="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">Review</span>
         </div>
-        <div>
-          <div class="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {{ approvedCount }} <span class="text-sm font-medium text-slate-500">Dokumen</span>
-          </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-2xl font-extrabold tracking-tight text-slate-900">{{ waitingCount }}</span>
+          <span class="text-[11px] text-slate-500">Dokumen</span>
+        </div>
+        <div class="h-1 overflow-hidden rounded-full bg-blue-100">
+          <div class="h-full rounded-full bg-blue-600" :style="{ width: progressWidth(waitingCount) }"></div>
+        </div>
+      </div>
+
+      <div class="flex min-h-[104px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Disetujui &amp; Terbit BA</span>
+          <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">Sah</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-2xl font-extrabold tracking-tight text-slate-900">{{ approvedCount }}</span>
+          <span class="text-[11px] text-slate-500">Dokumen</span>
+        </div>
+        <div class="h-1 overflow-hidden rounded-full bg-blue-100">
+          <div class="h-full rounded-full bg-blue-600" :style="{ width: progressWidth(approvedCount) }"></div>
         </div>
       </div>
     </div>
 
-    <!-- Main Section: Active Documents & Right Sidebars -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      <!-- Left 2 Cols: Active Documents Table -->
-      <div class="xl:col-span-2 space-y-5">
-        <!-- Dokumen Perencanaan Aktif & Riwayat Table -->
-        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-          <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-bold text-slate-900">Dokumen Perencanaan Aktif & Riwayat</h2>
-            </div>
-
-            <!-- Filter tabs -->
-            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-600">
+    <div class="!mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+      <div class="flex flex-col gap-3 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="text-sm font-bold text-slate-900">Dokumen Perencanaan Aktif &amp; Riwayat</h2>
+        <div class="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 text-[10px] font-semibold text-slate-600">
               <button
                 v-for="tab in docStatusTabs"
                 :key="tab.label"
                 @click="docTableTab = tab.label"
-                class="px-3 py-1.5 rounded-lg transition-colors"
+                class="shrink-0 rounded-md px-2.5 py-1.5 transition-colors"
                 :class="docTableTab === tab.label ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'hover:text-slate-900'"
               >
                 {{ tab.label }}
-                <span class="ml-1 text-[10px] opacity-70">{{ tab.count }}</span>
+                <span class="ml-1 opacity-70">{{ tab.count }}</span>
               </button>
-            </div>
-          </div>
+        </div>
+      </div>
 
-          <table class="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
-                <th class="py-3 px-4">Nama & Nomor Dokumen</th>
-                <th class="py-3 px-4">Jenis Dokumen</th>
-                <th class="py-3 px-4">Pembaruan</th>
-                <th class="py-3 px-4 text-right">Status Validasi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              <tr
-                v-for="doc in filteredOpdDocs"
-                :key="doc.id"
-                @click="openDoc(doc)"
-                class="hover:bg-slate-50/70 transition-colors cursor-pointer"
-              >
-                <td class="py-3.5 px-4">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[680px] table-fixed text-left text-xs">
+          <colgroup>
+            <col class="w-[36%]" />
+            <col class="w-[12%]" />
+            <col class="w-[18%]" />
+            <col class="w-[13%]" />
+            <col class="w-[21%]" />
+          </colgroup>
+          <thead>
+            <tr class="border-b border-slate-200 bg-blue-50/70 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600">
+              <th class="px-3 py-3">Nama &amp; Nomor Dokumen</th>
+              <th class="px-3 py-3">Jenis Dokumen</th>
+              <th class="px-3 py-3">Pembaruan</th>
+              <th class="px-3 py-3">Status Validasi</th>
+              <th class="px-3 py-3 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="doc in filteredOpdDocs" :key="doc.id" class="odd:bg-blue-50/20 transition-colors hover:bg-blue-50/70">
+              <td class="px-3 py-2.5">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                      <FileText class="w-4 h-4" />
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+                      <FileText class="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <div class="font-bold text-slate-900 hover:text-blue-600 transition-colors">
+                      <button @click="openDoc(doc)" class="text-left font-bold text-slate-900 transition-colors hover:text-blue-600">
                         {{ doc.judul }}
-                      </div>
-                      <div class="text-[11px] text-slate-500 mt-0.5">
-                        No. {{ doc.nomorSurat || doc.kodeDoc }}
+                      </button>
+                      <div class="mt-0.5 text-[9px] text-slate-500">
+                        No. {{ doc.nomorSurat || doc.kodeDoc }}<span v-if="doc.tahun"> · T.A. {{ doc.tahun }}</span>
                       </div>
                     </div>
                   </div>
-                </td>
-                <td class="py-3.5 px-4 text-slate-600">
+              </td>
+              <td class="px-3 py-2.5 text-slate-700">
                   <div>{{ doc.jenis }}</div>
-                  <div class="text-[10px] text-slate-400">{{ doc.subJudul }}</div>
-                </td>
-                <td class="py-3.5 px-4 text-slate-500 text-[11px]">
+              </td>
+              <td class="px-3 py-2.5 text-slate-600">
                   {{ formatTime(doc.updatedAt) }}
-                </td>
-                <td class="py-3.5 px-4 text-right">
+                  <div class="mt-0.5 text-[9px] text-slate-400">Diperbarui</div>
+              </td>
+              <td class="px-3 py-2.5">
                   <span
-                    class="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold"
+                    class="inline-flex items-center gap-1 rounded px-2 py-1 text-[9px] font-bold"
                     :class="getStatusPill(doc.status)"
                   >
+                    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
                     {{ doc.status }}
                   </span>
+              </td>
+              <td class="px-3 py-2.5">
+                <div class="flex items-center justify-end gap-1.5">
                   <button
-                    v-if="doc.status === 'Draft'"
-                    @click.stop="submitDraft(doc)"
-                    :disabled="isSubmittingDocumentId === doc.id || !isUploadReady(doc)"
-                    :title="!isUploadReady(doc) ? 'Unggah dan simpan berkas dokumen sebelum diajukan' : 'Kirim dokumen ini ke Bapperida untuk diverifikasi'"
-                    class="mt-1.5 flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[10px] font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    v-if="doc.status === 'Disetujui'"
+                    @click="router.push('/arsip')"
+                    class="inline-flex items-center gap-1 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[9px] font-bold text-blue-700 transition-colors hover:bg-blue-100"
                   >
-                    <Send class="h-3 w-3" />
-                    {{ isSubmittingDocumentId === doc.id ? 'Mengajukan...' : isUploadReady(doc) ? 'Ajukan ke Admin' : 'Unggah berkas dulu' }}
+                    <FileText class="h-3 w-3" />
+                    Lihat BA
                   </button>
+                  <template v-else-if="doc.status === 'Draft'">
+                    <label
+                      v-if="doc.cara === 'upload' && !isUploadReady(doc)"
+                      class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[9px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                      :class="{ 'pointer-events-none opacity-50': uploadingDocumentId === doc.id }"
+                    >
+                      <input type="file" accept=".pdf,.docx" class="hidden" @change="uploadDraftSource($event, doc)" />
+                      <UploadCloud class="h-3 w-3" />
+                      {{ uploadingDocumentId === doc.id ? 'Mengunggah...' : 'Unggah berkas' }}
+                    </label>
+                    <button
+                      @click="openDoc(doc)"
+                      :disabled="doc.cara === 'upload' && !isUploadReady(doc)"
+                      :title="doc.cara === 'upload' && !isUploadReady(doc) ? 'Unggah berkas terlebih dahulu' : doc.cara === 'upload' ? 'Buka berkas dokumen' : 'Lanjutkan penyusunan dokumen'"
+                      class="inline-flex items-center gap-1 rounded-md bg-blue-700 px-2 py-1.5 text-[9px] font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      <FileEdit class="h-3 w-3" />
+                      {{ doc.cara === 'upload' ? 'Lihat Berkas' : 'Lanjutkan Draf' }}
+                    </button>
+                    <button
+                      v-if="isUploadReady(doc)"
+                      @click="submitDraft(doc)"
+                      :disabled="isSubmittingDocumentId === doc.id"
+                      title="Kirim dokumen ini ke Bapperida untuk diverifikasi"
+                      class="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[9px] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {{ isSubmittingDocumentId === doc.id ? 'Mengajukan...' : 'Ajukan' }}
+                    </button>
+                  </template>
                   <button
-                    v-if="doc.status === 'Perlu Revisi' && doc.cara === 'upload'"
-                    @click.stop="openRevisionUpload(doc)"
-                    class="block ml-auto mt-1 text-[10px] font-bold text-blue-700 hover:text-blue-900"
+                    v-else-if="doc.status === 'Perlu Revisi'"
+                    @click="doc.cara === 'upload' ? openRevisionUpload(doc) : openDoc(doc)"
+                    class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[9px] font-bold text-amber-800 transition-colors hover:bg-amber-100"
                   >
-                    Unggah Perbaikan
+                    <FileEdit class="h-3 w-3" />
+                    {{ doc.cara === 'upload' ? 'Unggah Perbaikan' : 'Perbaiki Draf' }}
                   </button>
-                </td>
-              </tr>
-              <tr v-if="filteredOpdDocs.length === 0">
-                <td colspan="4" class="py-8 text-center text-xs text-slate-500">
-                  Tidak ada dokumen pada status ini.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  <span v-else class="text-[10px] text-slate-400">Menunggu verifikasi</span>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="filteredOpdDocs.length === 0">
+              <td colspan="5" class="px-3 py-8 text-center text-xs text-slate-500">Tidak ada dokumen pada status ini.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- Right Column: Catatan Verifikator & Kepatuhan Sistematika -->
-      <div class="space-y-5">
-        <!-- 1. Catatan Verifikator Card (Prominent from Screenshot 4) -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs relative">
-          <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-            <div class="flex items-center gap-2">
-              <MessageSquare class="w-4 h-4 text-amber-600" />
-              <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Catatan Verifikator</h2>
-            </div>
-            <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-              1 Catatan Aktif
-            </span>
-          </div>
-
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-red-600 uppercase">Perbaikan Bab IV</span>
-              <span class="text-[10px] text-slate-400">2 jam yang lalu</span>
-            </div>
-
-            <p class="text-xs text-slate-700 italic bg-amber-50/60 p-3 rounded-xl border border-amber-200 leading-relaxed font-serif">
-              "Pagu Sub Kegiatan Pelayanan Rujukan (Kode: 1.02.02.2.02.0004) perlu dirasionalisasi kembali ke pagu indikatif TAPD Kabupaten Cirebon."
-            </p>
-
-            <div class="flex items-center gap-2.5 pt-1">
-              <div class="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[10px]">
-                AR
-              </div>
-              <div class="text-[11px]">
-                <div class="font-bold text-slate-800">Ahmad Rosyadi, M.Si</div>
-                <div class="text-slate-500 text-[10px]">Bidang PPEPD - Desk Wilayah II</div>
-              </div>
-            </div>
-
-            <button
-              v-if="revisionDoc"
-              @click="openDoc(revisionDoc)"
-              class="w-full mt-2 py-2.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
-            >
-              <FileEdit class="w-4 h-4" />
-              <span>{{ revisionDoc.cara === 'upload' ? 'Unggah Berkas Perbaikan' : 'Buka Lembar Catatan Revisi' }}</span>
-            </button>
-          </div>
-        </div>
+      <div class="flex items-center justify-between border-t border-slate-100 bg-blue-50/50 px-3 py-2 text-[9px] text-slate-500">
+        <span>Menampilkan {{ filteredOpdDocs.length }} dari {{ opdDocs.length }} dokumen terdaftar</span>
+        <span class="hidden sm:inline">Sistem Perencanaan Daerah Terpadu · Versi 3.4.1</span>
       </div>
     </div>
 
-    <!-- Floating Help & Kepatuhan Button (Rule 3) -->
-    <div class="fixed bottom-6 right-6 z-40">
-      <button
-        @click="showSupportModal = true"
-        class="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/30 transition-all hover:scale-105 active:scale-95 text-xs font-bold"
-      >
-        <HelpCircle class="w-4 h-4" />
-        <span>Bantuan & Kepatuhan</span>
-      </button>
-    </div>
-
-    <!-- Modal: Bantuan & Kepatuhan Sistematika (Rule 3) -->
-    <div v-if="showSupportModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 border border-slate-100 space-y-5">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div class="flex items-center gap-2">
-            <CheckCircle2 class="w-5 h-5 text-blue-600" />
-            <h3 class="font-bold text-slate-900 text-sm">Bantuan & Standar Kepatuhan</h3>
+    <div v-if="showVerifierNotes" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" @click.self="showVerifierNotes = false">
+      <section class="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" aria-labelledby="verifier-notes-title">
+        <header class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 id="verifier-notes-title" class="text-base font-bold text-slate-900">Catatan Verifikator</h2>
+            <p class="mt-0.5 text-xs text-slate-500">{{ activeRevisionNotes.length }} catatan perlu ditindaklanjuti</p>
           </div>
-          <button @click="showSupportModal = false" class="p-1 text-slate-400 hover:text-slate-700 rounded-lg">
-            <X class="w-5 h-5" />
+          <button @click="showVerifierNotes = false" aria-label="Tutup catatan verifikator" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <X class="h-4 w-4" />
           </button>
-        </div>
-
-        <!-- 1. Kepatuhan Sistematika -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Kepatuhan Sistematika</h4>
-            <span class="text-[10px] text-slate-500 font-medium">Permendagri 86/2017</span>
-          </div>
-
-          <div class="space-y-2 text-xs">
-            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div class="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 class="w-4 h-4 text-blue-600" />
-                <span>Sistematika Bab I - V</span>
+        </header>
+        <div class="max-h-[65vh] space-y-3 overflow-y-auto p-5">
+          <article v-for="doc in activeRevisionNotes" :key="doc.id" class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">{{ doc.judul }}</h3>
+                <p class="mt-1 text-[11px] text-slate-500">{{ doc.jenis }} · T.A. {{ doc.tahun }} · {{ formatTime(doc.updatedAt) }}</p>
               </div>
-              <span class="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-[11px]">100% Sesuai</span>
+              <span class="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">Perlu Revisi</span>
             </div>
-
-            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div class="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 class="w-4 h-4 text-emerald-600" />
-                <span>Matriks T-C.29 Renja</span>
-              </div>
-              <span class="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">Lengkap</span>
+            <p class="mt-3 whitespace-pre-line text-xs leading-relaxed text-slate-700">{{ doc.catatanRevisi || 'Tidak ada rincian catatan.' }}</p>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-amber-200/70 pt-3">
+              <span class="text-[10px] text-slate-500">
+                Verifikator: {{ doc.verifierName || 'Bapperida' }}<span v-if="doc.verifierJabatan"> · {{ doc.verifierJabatan }}</span>
+              </span>
+              <button @click="openDoc(doc); showVerifierNotes = false" class="rounded-lg bg-blue-700 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-blue-800">
+                {{ doc.cara === 'upload' ? 'Unggah Perbaikan' : 'Buka Dokumen' }}
+              </button>
             </div>
-
-            <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <div class="flex items-center gap-2 text-slate-700 font-medium">
-                <CheckCircle2 class="w-4 h-4 text-emerald-600" />
-                <span>BA Forum OPD Terverifikasi</span>
-              </div>
-              <span class="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">TTE Valid</span>
-            </div>
+          </article>
+          <div v-if="activeRevisionNotes.length === 0" class="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center">
+            <MessageSquare class="mx-auto h-7 w-7 text-slate-300" />
+            <p class="mt-2 text-sm font-semibold text-slate-700">Belum ada catatan revisi aktif</p>
+            <p class="mt-1 text-xs text-slate-500">Catatan verifikator akan muncul di sini jika dokumen dikembalikan untuk revisi.</p>
           </div>
         </div>
-
-        <!-- 2. Narahubung Desk Bapperida -->
-        <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200">
-          <div class="flex items-center gap-2 mb-1.5">
-            <Headphones class="w-4 h-4 text-blue-700" />
-            <h4 class="text-xs font-bold text-blue-900 uppercase tracking-wider">Narahubung Desk Bapperida</h4>
-          </div>
-          <p class="text-xs text-blue-800 leading-relaxed mb-3">
-            Desk Pendampingan Perencanaan Wilayah II (Dinkes & Dinsos Kab. Cirebon)
-          </p>
-          <div class="space-y-2">
-            <a
-              href="https://wa.me/628123456789"
-              target="_blank"
-              class="w-full py-2 px-3 bg-white hover:bg-slate-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-700 flex items-center justify-between transition-colors shadow-2xs"
-            >
-              <span>WhatsApp Helpdesk</span>
-              <span class="text-blue-600">&rarr; Hubungi</span>
-            </a>
-            <div class="px-3 py-2 text-xs text-slate-600 bg-white/70 rounded-xl border border-blue-100 flex justify-between font-mono">
-              <span>Hotline SIPANDA Cirebon</span>
-              <span class="font-bold">Ext. 104</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="pt-2 text-right">
-          <button @click="showSupportModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
-            Tutup
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
 
     <!-- Replace uploaded document returned for revision -->
@@ -393,23 +305,6 @@
       </div>
     </div>
 
-    <!-- Guidance Modal -->
-    <div v-if="showGuidance" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 border border-slate-100">
-        <h3 class="font-bold text-slate-900 text-base mb-2">Alur Dokumen Perencanaan</h3>
-        <ol class="list-decimal pl-5 space-y-2 text-xs text-slate-600 leading-relaxed">
-          <li>OPD menyusun dokumen atau mengunggah berkas, lalu mengajukannya ke Bapperida untuk verifikasi.</li>
-          <li>Bapperida menelaah dokumen dan memberi keputusan: disetujui atau perlu revisi.</li>
-          <li>Jika perlu revisi, buka tab <strong>Perlu Revisi</strong>, perbaiki dokumen, lalu ajukan ulang. Untuk dokumen upload, unggah berkas pengganti pada dokumen yang sama.</li>
-          <li>Dokumen yang disetujui mendapat Berita Acara/TTE dan masuk ke Arsip Dokumen.</li>
-        </ol>
-        <div class="mt-5 text-right">
-          <button @click="showGuidance = false" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">
-            Tutup
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -419,29 +314,17 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '../stores/appStore';
 import type { DocumentItem } from '../types';
 import {
-  Calendar,
-  Clock,
-  BookOpen,
-  Plus,
-  Check,
-  Eye,
-  Send,
-  Edit3,
   FileText,
   MessageSquare,
   FileEdit,
-  CheckCircle2,
-  Headphones,
-  ChevronDown,
-  HelpCircle,
-  X
+  X,
+  UploadCloud
 } from '@lucide/vue';
 
 const store = useAppStore();
 const router = useRouter();
 
-const showGuidance = ref(false);
-const showSupportModal = ref(false);
+const showVerifierNotes = ref(false);
 const docTableTab = ref('Semua');
 const uploadRevisionDoc = ref<DocumentItem | null>(null);
 const revisionFile = ref<File | null>(null);
@@ -450,6 +333,7 @@ const revisionReadyToSubmitId = ref<string | null>(null);
 const isReplacingRevisionFile = ref(false);
 const isSubmittingRevision = ref(false);
 const isSubmittingDocumentId = ref('');
+const uploadingDocumentId = ref('');
 
 const opdDocs = computed(() => {
   return store.documents.filter(d => d.opdId === store.currentUser?.opdId);
@@ -459,10 +343,34 @@ const drafCount = computed(() => opdDocs.value.filter(d => d.status === 'Draft')
 const waitingCount = computed(() => opdDocs.value.filter(d => d.status === 'Menunggu Verifikasi').length);
 const revisionCount = computed(() => opdDocs.value.filter(d => d.status === 'Perlu Revisi').length);
 const approvedCount = computed(() => opdDocs.value.filter(d => d.status === 'Disetujui').length);
-const revisionDoc = computed(() => opdDocs.value.find(d => d.status === 'Perlu Revisi'));
+const activeRevisionNotes = computed(() => opdDocs.value
+  .filter(doc => doc.status === 'Perlu Revisi')
+  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+
+const progressWidth = (count: number) =>
+  `${opdDocs.value.length ? Math.round((count / opdDocs.value.length) * 100) : 0}%`;
 
 const isUploadReady = (doc: DocumentItem) =>
   doc.cara !== 'upload' || Boolean(doc.fileName && doc.filePath);
+
+const openVerifierNotes = () => {
+  showVerifierNotes.value = true;
+};
+
+const uploadDraftSource = async (event: Event, doc: DocumentItem) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || doc.status !== 'Draft' || doc.cara !== 'upload') return;
+  uploadingDocumentId.value = doc.id;
+  try {
+    await store.replaceRevisionFile(doc.id, file);
+  } catch (error) {
+    console.error('Failed to upload draft document:', error);
+  } finally {
+    uploadingDocumentId.value = '';
+  }
+};
 
 const submitDraft = async (doc: DocumentItem) => {
   if (doc.status !== 'Draft' || !isUploadReady(doc) || isSubmittingDocumentId.value) return;

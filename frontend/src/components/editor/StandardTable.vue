@@ -1,5 +1,6 @@
 ﻿<template>
- <div class="my-4 border rounded p-3 bg-white">
+ <div :id="table.id" class="my-4 border rounded p-3 bg-white" :class="table.type==='renja' ? 'standard-landscape' : ''">
+  <p v-if="table.type==='renja'" class="text-xs text-slate-700 mb-2 no-print">Bagian Landscape &middot; F4 &middot; kembali Portrait setelah tabel</p>
   <p class="font-bold text-sm mb-2">{{ caption }}</p>
   <div class="overflow-x-auto">
    <table class="w-full border-collapse text-xs">
@@ -23,6 +24,7 @@
    <span>Impor menambahkan baris; gunakan urutan kolom pada format CSV.</span>
   </div>
   <p v-if="error" role="alert" class="text-red-700 text-xs mt-2">{{ error }}</p>
+  <ul v-if="warnings.length" class="text-amber-900 text-xs mt-2 list-disc pl-4"><li v-for="warning in warnings" :key="warning">{{ warning }}</li></ul>
  </div>
 </template>
 <script setup lang="ts">
@@ -31,6 +33,7 @@ import {tableColumns,calculatedRows,normalizeTable} from '../../../../shared/doc
 import {apiFetch} from '../../lib/api';
 const props=defineProps<{table:any;tahun:string;caption:string;editable:boolean}>();
 const emit=defineEmits(['update','remove']); const error=ref('');
+const warnings=ref<string[]>([]);
 const columns=computed(()=>tableColumns(props.table.type,props.tahun));
 const calculated=computed(()=>calculatedRows(props.table));
 function change(fn:(t:any)=>void){const t=JSON.parse(JSON.stringify(props.table));try{fn(t);emit('update',normalizeTable(t));error.value='';}catch(e:any){error.value=e.message;}}
@@ -38,6 +41,6 @@ function update(i:number,j:number,e:Event){change(t=>t.rows[i].cells[j]=(e.targe
 function level(i:number,e:Event){change(t=>t.rows[i].level=(e.target as HTMLSelectElement).value);}
 function add(){change(t=>t.rows.push({level:t.type==='renja'?'subkegiatan':'baris',cells:columns.value.map(()=> '')}));}
 function remove(i:number){change(t=>t.rows.splice(i,1));}
-async function importFile(e:Event){const input=e.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;try{const f=new FormData();f.append('file',file);f.append('type',props.table.type);const r=await apiFetch('/api/document-tables/import',{method:'POST',body:f});const data=await r.json();if(!r.ok)throw new Error(data.error);change(t=>t.rows.push(...data.rows));}catch(e:any){error.value=e.message;}finally{input.value='';}}
+async function importFile(e:Event){const input=e.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;try{const f=new FormData();f.append('file',file);f.append('type',props.table.type);const r=await apiFetch('/api/document-tables/import',{method:'POST',body:f});const data=await r.json();if(!r.ok)throw new Error(data.error);warnings.value=data.warnings||[];change(t=>t.rows.push(...data.rows));}catch(e:any){error.value=e.message;}finally{input.value='';}}
 function downloadExample(){const quote=(s:string)=>`"${s.replaceAll('"','""')}"`;const headers=props.table.type==='renja'?['Tingkat',...columns.value]:columns.value;const blob=new Blob(['\uFEFF'+headers.map(quote).join(';')+'\r\n'],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`format-${props.table.type}.csv`;a.click();URL.revokeObjectURL(a.href);}
 </script>

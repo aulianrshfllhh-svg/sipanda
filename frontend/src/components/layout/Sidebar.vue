@@ -1,15 +1,18 @@
 <template>
-  <aside class="w-64 bg-white border-r border-slate-200 flex flex-col h-screen select-none shrink-0 sticky top-0">
+  <aside
+    class="bg-white border-r border-slate-200 flex flex-col h-screen select-none shrink-0 sticky top-0"
+    :class="route.path === '/' ? 'w-48 dashboard-sidebar' : route.path.startsWith('/dokumen') ? 'w-52' : 'w-64'"
+  >
     <!-- Header Logo -->
-    <div class="p-5 border-b border-slate-100">
-      <SipandaLogo />
+    <div class="border-b border-slate-100" :class="route.path === '/' ? 'px-3 py-1' : route.path.startsWith('/dokumen') ? 'bg-indigo-50 px-4 py-2' : 'p-5'">
+      <SipandaLogo :compact="route.path === '/' || route.path.startsWith('/dokumen')" />
     </div>
 
     <!-- Navigation Menu -->
-    <div class="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+    <div class="flex-1 overflow-y-auto" :class="route.path === '/' ? 'space-y-4 px-2 py-2' : 'space-y-6 px-3 py-4'">
       <!-- Section: Info & Perencanaan -->
       <div>
-        <div class="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        <div class="sidebar-section-heading px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
           Info & Perencanaan
         </div>
         <nav class="space-y-1">
@@ -52,13 +55,13 @@
                     <span>Renja</span>
                   </div>
                   <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
-                    {{ renjaDocsCount }} Dokumen
+                    {{ route.path === '/' ? renjaDocsCount : `${renjaDocsCount} Dokumen` }}
                   </span>
                 </router-link>
 
                 <router-link
                   to="/dokumen?tab=renstra"
-                  v-if="store.isSuperAdmin || !store.isBapperida"
+                  v-if="store.isSuperAdmin || store.isStaff || !store.isBapperida"
                   class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
                   :class="isActiveSub('/dokumen', 'renstra') ? 'text-indigo-700 font-semibold bg-indigo-50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
                 >
@@ -67,7 +70,7 @@
                     <span>Renstra</span>
                   </div>
                   <span class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-semibold">
-                    {{ renstraDocsCount }} Dokumen
+                    {{ route.path === '/' ? renstraDocsCount : `${renstraDocsCount} Dokumen` }}
                   </span>
                 </router-link>
                 <router-link
@@ -126,15 +129,13 @@
             :class="isActive('/pengaturan') ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
           >
             <Settings class="w-4 h-4 shrink-0" />
-            <span>Pengaturan Dokumen</span>
+            <span>Pengaturan</span>
           </router-link>
         </nav>
       </div>
-
-      <router-link v-if="store.isSuperAdmin" to="/template" class="block px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 rounded">Template Dokumen</router-link>
       <!-- Section: Administrasi -->
       <div>
-        <div class="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        <div class="sidebar-section-heading px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
           Administrasi
         </div>
         <nav class="space-y-1">
@@ -192,12 +193,15 @@
     </div>
 
     <!-- Bottom User Profile & Switcher -->
-    <div class="p-3 border-t border-slate-200 bg-slate-50/70">
+    <div class="p-3 border-t border-slate-200 bg-slate-50">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2.5 overflow-hidden">
-          <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs text-white"
-               :class="store.isBapperida ? 'bg-blue-600' : 'bg-emerald-600'">
-            <Building2 class="w-4 h-4" />
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white shadow-2xs"
+            :class="route.path === '/' ? 'rounded-full bg-slate-600' : store.isBapperida ? 'bg-blue-600' : 'bg-emerald-600'"
+          >
+            <span v-if="route.path === '/'">{{ dashboardInitials }}</span>
+            <Building2 v-else class="w-4 h-4" />
           </div>
           <div class="truncate">
             <div class="text-xs font-bold text-slate-800 truncate" :title="store.currentUser?.name">
@@ -226,7 +230,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { isNavigationFailure, useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '../../stores/appStore';
 import SipandaLogo from '../common/SipandaLogo.vue';
 import RoleSwitcherModal from './RoleSwitcherModal.vue';
@@ -251,6 +255,12 @@ const router = useRouter();
 
 const isDokumenMenuOpen = ref(true);
 const showUserSwitcher = ref(false);
+const dashboardInitials = computed(() => (store.currentUser?.opdName || 'Perangkat Daerah')
+  .split(/\s+/)
+  .map(word => word[0])
+  .join('')
+  .slice(0, 2)
+  .toUpperCase());
 const isDokumenActive = computed(() => route.path.startsWith('/dokumen'));
 const navigationDocuments = computed(() => store.isSuperAdmin
   ? store.documents.filter(doc => doc.opdId === (store.currentUser?.opdId || 'bapperida'))
@@ -291,8 +301,24 @@ const handleUserSwitched = (returnToDashboard: boolean) => {
   }
 };
 
-const handleLogout = () => {
+const handleLogout = async () => {
+  const navigation = await router.push('/login');
+  if (isNavigationFailure(navigation)) return;
   store.logout();
-  router.push('/login');
 };
 </script>
+
+<style scoped>
+.dashboard-sidebar :deep(a),
+.dashboard-sidebar :deep(nav button) {
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+
+.dashboard-sidebar :deep(.sidebar-section-heading) {
+  margin-bottom: 0.25rem;
+}
+</style>

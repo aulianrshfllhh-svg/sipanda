@@ -71,7 +71,7 @@ const RAW_DATA: [string, string, string, string][] = [
   ['dpmd',          'Dinas Pemberdayaan Masyarakat dan Desa',                                           'DPMD',         'dinas'],
   // ── Badan ────────────────────────────────────────────────────
   ['bkpsdm',        'Badan Kepegawaian dan Pengembangan Sumber Daya Manusia',                           'BKPSDM',       'badan'],
-  ['bapperida',     'Badan Perencanaan Pembangunan, Penelitian dan Pengembangan Daerah',                'Bapperida',    'badan'],
+  ['bapperida',     'Badan Perencanaan Pembangunan, Riset, dan Inovasi Daerah',                'Bapperida',    'badan'],
   ['bkad',          'Badan Keuangan dan Aset Daerah',                                                  'BKAD',         'badan'],
   ['bapenda',       'Badan Pendapatan Daerah',                                                         'Bapenda',      'badan'],
   ['kesbangpol',    'Badan Kesatuan Bangsa dan Politik',                                               'Kesbangpol',   'badan'],

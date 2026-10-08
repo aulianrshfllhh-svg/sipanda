@@ -16,9 +16,6 @@
           <Archive class="w-6 h-6 text-blue-600 shrink-0" />
           <span>Arsip Dokumen Internal {{ currentOpdShortName }}</span>
         </h1>
-        <p class="text-xs text-slate-500 mt-1">
-          Koleksi arsip naskah perencanaan resmi (Renja Murni, Renja Perubahan, Lampiran, & Renstra) yang telah diverifikasi.
-        </p>
       </div>
 
       <!-- Action Button -->
@@ -32,39 +29,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Alert / Notice Banner (Specific to current OPD) -->
-    <div class="bg-blue-50/90 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div class="flex items-start sm:items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-          <Building2 class="w-5 h-5" />
-        </div>
-        <div>
-          <div class="text-xs font-bold text-slate-900">
-            Repositori Arsip Resmi: {{ currentOpdFullName }}
-          </div>
-          <div class="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
-            Halaman ini khusus memuat arsip dokumen perencanaan milik <strong class="text-slate-800">{{ currentOpdFullName }}</strong>. Naskah yang telah memperoleh verifikasi tersimpan permanen dengan sertifikasi integritas dokumen.
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <router-link
-          v-if="store.isAdmin"
-          to="/monitoring"
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
-        >
-          <span>Monitoring 58 OPD</span>
-        </router-link>
-        <router-link
-          to="/dokumen"
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors shadow-xs"
-        >
-          <span>Penyusunan Baru</span>
-        </router-link>
-      </div>
-    </div>
-
 
     <!-- Filter Bar: 1 Fitur Dropdown Semua Arsip + Filter T.A. + Pencarian -->
     <div class="flex flex-wrap items-center justify-between gap-3">

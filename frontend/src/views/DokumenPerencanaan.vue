@@ -1,219 +1,111 @@
 <template>
-  <div class="space-y-6">
-    <!-- Header with Year Badge & Action -->
-    <div class="flex items-center justify-between">
+  <div class="planning-page space-y-5">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Dokumen Perencanaan</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Pengelolaan naskah perencanaan daerah Kabupaten Cirebon</p>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <!-- Year Selector Dropdown (matching beranda/Navbar style) -->
-        <div class="relative">
-          <button
-            @click="showYearDropdown = !showYearDropdown"
-            class="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-2xs"
-          >
-            <Calendar class="w-3.5 h-3.5 text-blue-600" />
-            <span>T.A. {{ store.selectedTahun }}</span>
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <ChevronDown class="w-3.5 h-3.5 text-slate-400" />
-          </button>
-
-          <!-- Dropdown -->
-          <div
-            v-if="showYearDropdown"
-            class="absolute right-0 mt-1.5 w-40 max-h-64 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-40 text-xs"
-          >
-            <div
-              v-for="yr in store.availableYears"
-              :key="yr"
-              @click="selectYear(yr)"
-              class="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-colors"
-              :class="store.selectedTahun === yr ? 'text-blue-600 font-bold bg-blue-50/60' : 'text-slate-700'"
-            >
-              <span>T.A. {{ yr }}</span>
-              <Check v-if="store.selectedTahun === yr" class="w-3.5 h-3.5 text-blue-600" />
-            </div>
-          </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-slate-900">Dokumen Perencanaan</h1>
+          <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">SIPANDA</span>
         </div>
-
-        <button
-          @click="store.showCreateModal = true"
-          class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shadow-blue-500/20"
-        >
-          <Plus class="w-4 h-4" />
-          <span>+ Buat Dokumen</span>
+        <p class="mt-1 text-xs text-slate-500">Pengelolaan naskah dan draf dokumen perencanaan</p>
+      </div>
+      <div class="flex shrink-0 items-center gap-2">
+        <button @click="downloadRecap" class="flex items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-blue-50">
+          <Download class="h-3.5 w-3.5" /> Unduh Rekap
+        </button>
+        <button @click="store.showCreateModal = true" class="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">
+          <Plus class="h-3.5 w-3.5" /> Buat Dokumen
         </button>
       </div>
     </div>
-
-    <!-- Document families vary by role -->
-    <div class="border-b border-slate-200 flex items-center gap-6 overflow-x-auto">
-      <button
-        v-for="tab in availableTabs"
-        :key="tab.id"
-        @click="switchTab(tab.id)"
-        class="pb-3 text-sm font-bold flex items-center gap-2 transition-colors relative whitespace-nowrap"
-        :class="activeTab === tab.id ? tab.activeText : 'text-slate-500 hover:text-slate-900'"
-      >
-        <component :is="tab.icon" class="w-4 h-4" />
-        <span>{{ tab.label }}</span>
-        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-              :class="activeTab === tab.id ? tab.activeBadge : 'bg-slate-100 text-slate-600'">
-          {{ tab.count }} Dokumen
-        </span>
-        <span v-if="activeTab === tab.id" class="absolute bottom-0 left-0 right-0 h-0.5" :class="tab.activeBar"></span>
-      </button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-blue-100 p-1" role="tablist" aria-label="Jenis dokumen">
+        <button v-for="tab in availableTabs" :key="tab.id" @click="switchTab(tab.id)" role="tab" :aria-selected="activeTab === tab.id"
+          class="rounded-lg px-3 py-1.5 text-xs transition-colors"
+          :class="activeTab === tab.id ? 'bg-white font-semibold text-blue-700' : 'text-slate-600 hover:bg-white/50'">
+          {{ tab.label }} <span class="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px]">{{ tab.count }}</span>
+        </button>
+      </div>
+      <p v-if="activeTab === 'renja'" class="flex items-center gap-1.5 text-[10px] text-slate-600"><span class="h-1.5 w-1.5 rounded-full bg-blue-600"></span>Modul penyusunan Rencana Kerja</p>
     </div>
 
-    <!-- 3 Action Feature Cards for Renja -->
-    <div v-if="activeTab === 'renja'" class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <!-- 1. Renja Murni Card -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-blue-300 transition-all">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <BookOpen class="w-5 h-5" />
-            </div>
-            <span class="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-              TA {{ store.defaultDocumentYear('Renja Murni') }}
-            </span>
+    <div v-if="activeTab === 'renja'" class="planning-cards grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div class="rounded-xl border border-white bg-white p-3 transition-colors hover:border-blue-300">
+        <div class="mb-2 flex items-center justify-between">
+          <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <BookOpen class="h-5 w-5" />
           </div>
-          <h2 class="text-base font-bold text-slate-900">Renja Murni</h2>
-          <p class="text-xs text-slate-500 mt-1">Dokumen Induk Utama</p>
+          <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+            TA {{ store.defaultDocumentYear('Renja Murni') }}
+          </span>
         </div>
+        <h2 class="text-sm font-semibold text-slate-900">Renja Murni</h2>
         <button
           @click="openMethodModal('Renja Murni')"
-          class="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shadow-blue-500/10"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-blue-500/10 transition-colors hover:bg-blue-700"
         >
-          <Plus class="w-4 h-4" />
+          <Plus class="h-4 w-4" />
           <span>Buat Dokumen</span>
         </button>
       </div>
 
-      <!-- 2. Renja Perubahan Card -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-amber-300 transition-all">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <RefreshCw class="w-5 h-5" />
-            </div>
-            <span class="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              TA {{ store.defaultDocumentYear('Renja Perubahan') }}
-            </span>
+      <div class="rounded-xl border border-white bg-white p-3 transition-colors hover:border-amber-300">
+        <div class="mb-2 flex items-center justify-between">
+          <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+            <RefreshCw class="h-5 w-5" />
           </div>
-          <h2 class="text-base font-bold text-slate-900">Renja Perubahan</h2>
-          <p class="text-xs text-slate-500 mt-1">Dokumen Induk Penyesuaian</p>
+          <span class="rounded-md bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+            TA {{ store.defaultDocumentYear('Renja Perubahan') }}
+          </span>
         </div>
+        <h2 class="text-sm font-semibold text-slate-900">Renja Perubahan</h2>
         <button
           @click="openMethodModal('Renja Perubahan')"
-          class="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shadow-blue-500/10"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1.5 text-[11px] font-bold text-blue-700  transition-colors hover:bg-blue-200"
         >
-          <Plus class="w-4 h-4" />
+          <Plus class="h-4 w-4" />
           <span>Buat Dokumen</span>
         </button>
       </div>
 
-      <!-- 3. Renja Lampiran (Lampiran Otomatis) -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs flex flex-col justify-between hover:border-emerald-300 transition-all">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Table2 class="w-5 h-5" />
-            </div>
-            <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Lampiran Otomatis
-            </span>
-          </div>
-          <h2 class="text-base font-bold text-slate-900">Renja Lampiran</h2>
-          <p class="text-xs text-slate-500 mt-1">Salinan Bab I sampai akhir</p>
-        </div>
-        <router-link
-          to="/lampiran?jenis=Lampiran%20Perbup%20Renja"
-          class="w-full mt-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shadow-blue-500/10"
-        >
-          <Eye class="w-4 h-4" />
-          <span>Lihat Lampiran Renja</span>
-        </router-link>
-      </div>
     </div>
 
-    <!-- Renstra Feature Banner & Action Cards -->
-    <div v-else-if="activeTab === 'renstra'" class="space-y-4">
-      <!-- Top Renstra Header Banner -->
-      <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
-        <div class="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 backdrop-blur-3xl transform skew-x-12 translate-x-12 pointer-events-none"></div>
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-bold mb-2 backdrop-blur-xs">
-              <FileSpreadsheet class="w-3.5 h-3.5" />
-              <span>Dokumen Renstra (Rencana Strategis Perangkat Daerah)</span>
-            </div>
-            <h2 class="text-xl font-bold tracking-tight text-white">Naskah Dokumen Perencanaan Renstra (5 Tahunan)</h2>
-            <p class="text-xs text-indigo-200/90 mt-1 max-w-xl leading-relaxed">
-              Penyusunan naskah Renstra Murni & Perubahan Perangkat Daerah Kabupaten Cirebon periode 5 tahunan sesuai Permendagri No. 86 Tahun 2017.
-            </p>
+    <div v-else-if="activeTab === 'renstra'" class="planning-cards grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div class="rounded-xl border border-white bg-white p-3 transition-colors hover:border-blue-300">
+        <div class="mb-2 flex items-center justify-between">
+          <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <BookOpen class="h-5 w-5" />
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button
-              @click="openMethodModal('Renstra Murni')"
-              class="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-500/30 flex items-center gap-2"
-            >
-              <Plus class="w-4 h-4" />
-              <span>+ Buat Renstra Murni</span>
-            </button>
-          </div>
+          <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+            Dokumen Induk 5 Tahunan
+          </span>
         </div>
+        <h2 class="text-sm font-semibold text-slate-900">Renstra Murni</h2>
+        <button
+          @click="openMethodModal('Renstra Murni')"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-blue-500/10 transition-colors hover:bg-blue-700"
+        >
+          <Plus class="h-4 w-4" />
+          <span>Buat Dokumen Renstra Murni</span>
+        </button>
       </div>
 
-      <!-- 2 Dedicated Renstra Document Creation Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <!-- 1. Renstra Murni Card -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:border-indigo-300 transition-all flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <FileSpreadsheet class="w-5 h-5" />
-              </div>
-              <span class="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-100">
-                Dokumen Induk 5 Tahunan
-              </span>
-            </div>
-            <h2 class="text-base font-bold text-slate-900">Renstra Murni</h2>
-            <p class="text-xs text-slate-500 mt-1">Naskah Rencana Strategis Perangkat Daerah Periode 5 Tahunan</p>
+      <div class="rounded-xl border border-white bg-white p-3 transition-colors hover:border-amber-300">
+        <div class="mb-2 flex items-center justify-between">
+          <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+            <RefreshCw class="h-5 w-5" />
           </div>
-          <button
-            @click="openMethodModal('Renstra Murni')"
-            class="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shadow-indigo-500/20"
-          >
-            <Plus class="w-4 h-4" />
-            <span>Buat Dokumen Renstra Murni</span>
-          </button>
+          <span class="rounded-md bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+            Penyesuaian Renstra
+          </span>
         </div>
-
-        <!-- 2. Renstra Perubahan Card -->
-        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:border-indigo-300 transition-all flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                <RefreshCw class="w-5 h-5" />
-              </div>
-              <span class="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded border border-purple-100">
-                Penyesuaian Renstra
-              </span>
-            </div>
-            <h2 class="text-base font-bold text-slate-900">Renstra Perubahan</h2>
-            <p class="text-xs text-slate-500 mt-1">Naskah Penyesuaian / Revisi Rencana Strategis Perangkat Daerah</p>
-          </div>
-          <button
-            @click="openMethodModal('Renstra Perubahan')"
-            class="w-full mt-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm shadow-indigo-500/20"
-          >
-            <Plus class="w-4 h-4" />
-            <span>Buat Dokumen Renstra Perubahan</span>
-          </button>
-        </div>
+        <h2 class="text-sm font-semibold text-slate-900">Renstra Perubahan</h2>
+        <button
+          @click="openMethodModal('Renstra Perubahan')"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-blue-500/10 transition-colors hover:bg-blue-700"
+        >
+          <Plus class="h-4 w-4" />
+          <span>Buat Dokumen Renstra Perubahan</span>
+        </button>
       </div>
     </div>
 
@@ -244,8 +136,8 @@
     </div>
 
     <!-- Table Section: Daftar Draf Dokumen -->
-    <div class="space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="overflow-hidden rounded-2xl bg-white">
+      <div class="flex flex-col gap-3 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div class="flex items-center gap-2">
             <h2 class="text-base font-bold text-slate-900">Daftar Draf Dokumen</h2>
@@ -253,23 +145,25 @@
               {{ displayedDocuments.length }} Berkas Aktif
             </span>
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">Riwayat penyusunan dan pengajuan draf dokumen perencanaan OPD.</p>
+          <p class="mt-1 text-[11px] text-slate-500">
+            Draf tersimpan di server untuk akun OPD ini. Keluar dari aplikasi tidak menghapus dokumen; pilih “Lanjutkan Draf” untuk membukanya kembali.
+          </p>
         </div>
 
         <div class="flex items-center gap-3">
-          <div class="relative w-64">
+          <div class="relative w-full sm:w-48">
             <Search class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               v-model="searchDraf"
               type="text"
-              placeholder="Cari dokumen OPD..."
-              class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:border-blue-500"
+              placeholder="Cari dokumen..."
+              class="w-full pl-9 pr-3 py-1.5 bg-indigo-50 border border-transparent rounded-xl text-xs text-slate-700 outline-none focus:border-blue-500"
             />
           </div>
 
           <select
             v-model="statusFilterDraf"
-            class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium outline-none focus:border-blue-500"
+            class="px-3 py-1.5 bg-indigo-50 border border-transparent rounded-xl text-xs text-slate-700 font-medium outline-none focus:border-blue-500"
           >
             <option value="all">Semua Status</option>
             <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
@@ -281,21 +175,21 @@
       </div>
 
       <!-- Table View Matching Screenshot 2 & 3 -->
-      <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+      <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
-            <tr class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+            <tr class="bg-indigo-50 text-slate-500 font-medium uppercase tracking-wider text-[10px]">
               <th class="py-3 px-4">Nama Dokumen</th>
-              <th class="py-3 px-4">Metode Asal</th>
-              <th class="py-3 px-4">Perangkat Daerah</th>
-              <th class="py-3 px-4">Status Verifikasi</th>
+              <th class="py-3 px-4">Metode</th>
+              <th v-if="!store.isOpd" class="py-3 px-4">Perangkat Daerah</th>
+              <th class="py-3 px-4">Status</th>
               <th class="py-3 px-4">Pembaruan</th>
               <th class="py-3 px-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="doc in displayedDocuments"
+              v-for="doc in paginatedDocuments"
               :key="doc.id"
               class="hover:bg-slate-50/70 transition-colors"
             >
@@ -312,10 +206,10 @@
                   </div>
                   <div>
                     <div class="font-bold text-slate-900 hover:text-blue-600 cursor-pointer" @click="handleDocAction(doc)">
-                      {{ doc.fileName || (doc.cara === 'template' ? `${doc.jenis.replace(/\s+/g, '_')}_TA${doc.tahun}_${doc.opdId}.json` : 'Berkas belum diunggah') }}
+                      {{ doc.fileName || (doc.cara === 'template' ? `${doc.jenis.replace(/\s+/g, '_')}_TA${doc.tahun}_${doc.opdId}.json` : 'Draf Belum Diunggah') }}
                     </div>
                     <div class="text-[10px] text-slate-400 mt-0.5">
-                      ID: {{ doc.kodeDoc }}
+                      {{ doc.kodeDoc }}
                     </div>
                   </div>
                 </div>
@@ -332,7 +226,7 @@
               </td>
 
               <!-- Perangkat Daerah -->
-              <td class="py-3.5 px-4 font-semibold text-slate-800">
+              <td v-if="!store.isOpd" class="py-3.5 px-4 font-semibold text-slate-800">
                 {{ doc.opdName }}
               </td>
 
@@ -362,9 +256,10 @@
                   >
                     <input type="file" accept=".pdf,.docx" class="hidden" @change="replaceUploadedSource($event, doc)" />
                     <UploadCloud class="h-3.5 w-3.5" />
-                    {{ replacingSourceId === doc.id ? 'Memproses...' : 'Unggah PDF/DOCX' }}
+                    {{ replacingSourceId === doc.id ? 'Memproses...' : 'Unggah Berkas' }}
                   </label>
                   <button
+                    v-if="!needsUploadedSource(doc)"
                     @click="handleDocAction(doc)"
                     :disabled="doc.cara === 'upload' && !doc.fileName"
                     :title="doc.cara === 'upload' && !doc.fileName ? 'Pilih Unggah PDF/DOCX untuk menyimpan isi Renja dan membuat lampirannya' : undefined"
@@ -374,36 +269,30 @@
                     {{ doc.cara === 'upload' && !doc.fileName ? 'Berkas Belum Ada' : getActionButtonLabel(doc) }}
                   </button>
                   <button
-                    v-if="store.isOpd && doc.status === 'Draft'"
+                    v-if="store.isOpd && ['Draft', 'Perlu Revisi'].includes(doc.status)"
                     @click.stop="submitDraft(doc)"
-                    :disabled="isSubmittingDocumentId === doc.id || !isUploadReady(doc)"
+                    :disabled="Boolean(isSubmittingDocumentId) || !isUploadReady(doc)"
                     :title="!isUploadReady(doc) ? 'Unggah dan simpan berkas dokumen sebelum diajukan' : 'Kirim dokumen ini ke Bapperida untuk diverifikasi'"
                     class="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
                     <Send class="h-3 w-3" />
-                    {{ isSubmittingDocumentId === doc.id ? 'Mengajukan...' : isUploadReady(doc) ? 'Ajukan ke Admin' : 'Unggah dulu' }}
+                    {{ isSubmittingDocumentId === doc.id ? 'Mengirim...' : doc.status === 'Perlu Revisi' ? 'Submit Ulang ke Admin' : 'Submit ke Admin' }}
                   </button>
+                  <span v-if="store.isOpd && doc.status === 'Menunggu Verifikasi'" class="whitespace-nowrap text-[10px] font-medium text-blue-700">Sudah disubmit</span>
                 </div>
               </td>
             </tr>
+            <tr v-if="!displayedDocuments.length"><td :colspan="store.isOpd ? 5 : 6" class="px-4 py-10 text-center text-slate-500">{{ searchDraf || statusFilterDraf !== 'all' ? 'Tidak ada dokumen yang sesuai dengan pencarian.' : 'Belum ada draf dokumen. Pilih Buat Dokumen untuk mulai menyusun.' }}</td></tr>
           </tbody>
         </table>
 
-        <!-- Table Footer -->
-        <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <div>
-            Menampilkan <span class="font-bold text-slate-700">{{ displayedDocuments.length }}</span> dari
-            <span class="font-bold text-slate-700">{{ planningDocuments.length }}</span> total dokumen
-          </div>
+        <div class="flex min-w-[540px] items-center justify-between gap-3 bg-indigo-50 px-4 py-3 text-[10px] text-slate-600">
+          <span>Menampilkan {{ paginatedDocuments.length }} dari {{ displayedDocuments.length }} total berkas</span>
           <div class="flex items-center gap-1">
-            <button class="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 font-medium">
-              Sebelumnya
-            </button>
-            <button class="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs">1</button>
-            <button class="w-7 h-7 rounded-lg hover:bg-slate-100 font-semibold text-slate-600">2</button>
-            <button class="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 font-medium">
-              Selanjutnya
-            </button>
+            <button @click="currentPage--" :disabled="currentPage === 1" class="rounded-lg px-2 py-1 disabled:opacity-40">Sebelumnya</button>
+            <span class="rounded-lg bg-blue-600 px-2.5 py-1 text-white">{{ currentPage }}</span>
+            <span class="px-1">/ {{ totalPages }}</span>
+            <button @click="currentPage++" :disabled="currentPage === totalPages" class="rounded-lg px-2 py-1 disabled:opacity-40">Selanjutnya</button>
           </div>
         </div>
       </div>
@@ -637,15 +526,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '../stores/appStore';
 import type { DocumentItem, DocumentType } from '../types';
 import { apiFetch } from '../lib/api';
+import { formatUserDate } from '../lib/userDateFormat';
 import {
-  Calendar,
+  Download,
   Plus,
   Folder,
   FileSpreadsheet,
   BookOpen,
   RefreshCw,
-  Table2,
-  Eye,
   Search,
   FileText,
   FileCheck,
@@ -653,7 +541,6 @@ import {
   UploadCloud,
   Send,
   FolderOpen,
-  ChevronDown,
   Check,
   X,
   FileEdit,
@@ -670,7 +557,8 @@ type DocumentTab = 'renja' | 'renstra' | 'rkpd' | 'rpjmd';
 const activeTab = ref<DocumentTab>('renja');
 const searchDraf = ref('');
 const statusFilterDraf = ref('all');
-const showYearDropdown = ref(false);
+const currentPage = ref(1);
+const pageSize = 8;
 
 // ============================================================
 // Modal: Pilih Metode Buat Dokumen
@@ -705,7 +593,7 @@ const openMethodModal = async (jenis: DocumentType) => {
   uploadTitle.value = '';
   uploadNomorSurat.value = '';
   selectedOpdId.value = store.isSuperAdmin
-    ? store.opds.find(opd => opd.id !== 'bapperida')?.id || ''
+    ? store.opds.find(opd => opd.id === 'bapperida')?.id || store.opds[0]?.id || ''
     : store.currentUser?.opdId || '';
   if (store.isStaff && jenis.includes('Renja')) {
     const res = await apiFetch(`/api/staf/penugasan/saya?tahun=${targetYear}`);
@@ -803,12 +691,6 @@ const submitUpload = async () => {
   }
 };
 
-const selectYear = (yr: string) => {
-  store.setSelectedTahun(yr);
-  showYearDropdown.value = false;
-  store.fetchDocuments();
-};
-
 const renjaDocsCount = computed(() => {
   return planningDocuments.value.filter(d => d.jenis.includes('Renja')).length;
 });
@@ -819,9 +701,10 @@ const renstraDocsCount = computed(() => {
 
 const rkpdDocsCount = computed(() => planningDocuments.value.filter(doc => doc.jenis.includes('RKPD')).length);
 const rpjmdDocsCount = computed(() => planningDocuments.value.filter(doc => doc.jenis === 'RPJMD').length);
-const planningDocuments = computed(() => store.isSuperAdmin
-  ? store.documents.filter(doc => doc.opdId === (store.currentUser?.opdId || 'bapperida'))
-  : store.documents);
+const planningDocuments = computed(() => store.documents.filter(doc =>
+  !doc.isLampiranOtomatis &&
+  (!store.isSuperAdmin || doc.opdId === (store.currentUser?.opdId || 'bapperida'))
+));
 
 const availableTabs = computed(() => store.isSuperAdmin ? [
   { id: 'renja' as const, label: 'Renja OPD', icon: Folder, count: renjaDocsCount.value, activeText: 'text-blue-600', activeBadge: 'bg-blue-100 text-blue-700', activeBar: 'bg-blue-600' },
@@ -890,6 +773,23 @@ const displayedDocuments = computed(() => {
 
 
 
+const totalPages = computed(() => Math.max(1, Math.ceil(displayedDocuments.value.length / pageSize)));
+const paginatedDocuments = computed(() => displayedDocuments.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize));
+watch([activeTab, searchDraf, statusFilterDraf, () => store.selectedTahun], () => { currentPage.value = 1; });
+watch(totalPages, pages => { currentPage.value = Math.min(currentPage.value, pages); });
+
+function downloadRecap() {
+  const rows = [['Nama Dokumen', 'Jenis', 'Tahun', 'Perangkat Daerah', 'Metode', 'Status', 'Pembaruan'],
+    ...displayedDocuments.value.map(doc => [doc.judul, doc.jenis, doc.tahun, doc.opdName, doc.cara === 'template' ? 'Template Sistem' : 'Upload Mandiri', doc.status, formatDateTime(doc.updatedAt)])];
+  const csv = '\uFEFF' + rows.map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Rekap-${activeTab.value}-${store.selectedTahun}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 const getIconBgClass = (doc: DocumentItem) => {
   if (doc.isLampiranOtomatis) return 'bg-emerald-50 text-emerald-600';
   if (doc.cara === 'template') return 'bg-blue-50 text-blue-600';
@@ -929,6 +829,7 @@ const getActionButtonClass = (doc: DocumentItem) => {
 };
 
 const getActionButtonLabel = (doc: DocumentItem) => {
+  if (doc.cara === 'template' && ['Draft', 'Perlu Revisi'].includes(doc.status) && doc.permissions?.canEdit) return 'Lanjutkan Draf';
   if (doc.status === 'Perlu Revisi') return 'Catatan';
   if (doc.status === 'Menunggu Verifikasi') return doc.permissions?.canVerify ? 'Review' : 'Lihat';
   if (doc.isLampiranOtomatis) return 'Buka Lampiran';
@@ -949,7 +850,7 @@ const isUploadReady = (doc: DocumentItem) =>
   doc.cara !== 'upload' || Boolean(doc.fileName && doc.filePath);
 
 const submitDraft = async (doc: DocumentItem) => {
-  if (doc.status !== 'Draft' || !isUploadReady(doc) || isSubmittingDocumentId.value) return;
+  if (!store.isOpd || !['Draft', 'Perlu Revisi'].includes(doc.status) || !isUploadReady(doc) || isSubmittingDocumentId.value) return;
   isSubmittingDocumentId.value = doc.id;
   try {
     await store.submitDocument(doc.id);
@@ -1002,11 +903,6 @@ const replaceUploadedSource = async (event: Event, doc: DocumentItem) => {
 };
 
 const formatDateTime = (iso: string) => {
-  try {
-    const d = new Date(iso);
-    return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`;
-  } catch {
-    return 'Hari ini';
-  }
+  return formatUserDate(iso, store.preferences, true) || 'Hari ini';
 };
 </script>

@@ -8,8 +8,8 @@ const ANNEX_TYPES = {
 
 export const ANNEX_DOCUMENT_TYPES = [...new Set(Object.values(ANNEX_TYPES))];
 
-export async function syncLampiran(prisma, parentDoc, force = false) {
-  const parent = await prisma.document.findUnique({
+export async function syncLampiranInTransaction(tx, parentDoc, force = false) {
+  const parent = await tx.document.findUnique({
     where: { id: parentDoc.id },
     include: { sections: { orderBy: { babOrder: 'asc' } }, opd: true }
   });
@@ -27,11 +27,10 @@ export async function syncLampiran(prisma, parentDoc, force = false) {
     periodeAkhir: parent.regulation?.periodeAkhir || parent.tahun
   };
 
-  return prisma.$transaction(async tx => {
-    const existing = await tx.document.findUnique({ where: { kodeDoc } });
-    if (existing?.status === 'Disetujui' && !force) return existing;
+  const existing = await tx.document.findUnique({ where: { kodeDoc } });
+  if (existing?.status === 'Disetujui' && !force) return existing;
 
-    const data = {
+  const data = {
       jenis,
       tahun: parent.tahun,
       judul: title,
@@ -46,8 +45,8 @@ export async function syncLampiran(prisma, parentDoc, force = false) {
       templateId: parent.templateId,
       regulation: { ...defaults, ...(existing?.regulation || {}) },
       updatedAt: new Date()
-    };
-    const child = await tx.document.upsert({
+  };
+  const child = await tx.document.upsert({
       where: { kodeDoc },
       create: {
         ...data,
@@ -56,10 +55,10 @@ export async function syncLampiran(prisma, parentDoc, force = false) {
         nomerRegistrasiArsip: `ARS-${kodeDoc}`
       },
       update: data
-    });
-    await tx.documentSection.deleteMany({ where: { documentId: child.id } });
-    if (parent.sections.length) {
-      await tx.documentSection.createMany({
+  });
+  await tx.documentSection.deleteMany({ where: { documentId: child.id } });
+  if (parent.sections.length) {
+    await tx.documentSection.createMany({
         data: parent.sections.map(section => ({
           documentId: child.id,
           babId: section.babId,
@@ -68,8 +67,11 @@ export async function syncLampiran(prisma, parentDoc, force = false) {
           isLocked: true,
           subsections: section.subsections
         }))
-      });
-    }
-    return child;
-  });
+    });
+  }
+  return child;
+}
+
+export async function syncLampiran(prisma, parentDoc, force = false) {
+  return prisma.$transaction(tx => syncLampiranInTransaction(tx, parentDoc, force));
 }

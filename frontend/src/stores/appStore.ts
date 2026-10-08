@@ -1,8 +1,37 @@
 import { defineStore } from 'pinia';
-import type { User, DocumentItem, OPD, ActivityLog, MonitoringItem } from '../types';
+import type { User, UserPreferences, DocumentItem, OPD, ActivityLog, MonitoringItem, PlanningComplianceReport, AppNotification } from '../types';
 import { apiFetch } from '../lib/api';
 
 const currentCalendarYear = () => new Date().getFullYear();
+const defaultPreferences: UserPreferences = {
+  language: 'id',
+  theme: 'system',
+  notificationsEnabled: true,
+  showUnreadBadge: true,
+  timeZone: 'Asia/Jakarta',
+  dateFormat: 'd MMM yyyy'
+};
+
+function preferenceStorageKey(userId: string) {
+  return `sipanda_preferences:${userId}`;
+}
+
+function parsePreferences(value: string | null): UserPreferences {
+  if (!value) return { ...defaultPreferences };
+  try {
+    const saved = JSON.parse(value) as Partial<UserPreferences>;
+    return {
+      language: saved.language === 'id' ? 'id' : defaultPreferences.language,
+      theme: ['light', 'dark', 'system'].includes(saved.theme || '') ? saved.theme as UserPreferences['theme'] : defaultPreferences.theme,
+      notificationsEnabled: typeof saved.notificationsEnabled === 'boolean' ? saved.notificationsEnabled : defaultPreferences.notificationsEnabled,
+      showUnreadBadge: typeof saved.showUnreadBadge === 'boolean' ? saved.showUnreadBadge : defaultPreferences.showUnreadBadge,
+      timeZone: ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura', 'UTC'].includes(saved.timeZone || '') ? saved.timeZone as UserPreferences['timeZone'] : defaultPreferences.timeZone,
+      dateFormat: ['d MMM yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd'].includes(saved.dateFormat || '') ? saved.dateFormat as UserPreferences['dateFormat'] : defaultPreferences.dateFormat
+    };
+  } catch {
+    return { ...defaultPreferences };
+  }
+}
 
 function initialSelectedYear() {
   const currentYear = String(currentCalendarYear());
@@ -19,6 +48,8 @@ interface Toast {
 export const useAppStore = defineStore('app', {
   state: () => ({
     currentUser: null as User | null,
+    preferenceUserId: null as string | null,
+    preferences: { ...defaultPreferences } as UserPreferences,
     availableUsers: [] as User[],
     isAuthenticated: !!localStorage.getItem('sipanda_token'),
     selectedTahun: initialSelectedYear(),
@@ -26,6 +57,9 @@ export const useAppStore = defineStore('app', {
     documents: [] as DocumentItem[],
     activities: [] as ActivityLog[],
     monitoringList: [] as MonitoringItem[],
+    monitoringReport: null as PlanningComplianceReport | null,
+    monitoringRequestId: 0,
+    notifications: [] as AppNotification[],
     loading: false,
     toasts: [] as Toast[],
     showCreateModal: false,
@@ -75,6 +109,27 @@ export const useAppStore = defineStore('app', {
   },
 
   actions: {
+    loadPreferences(userId: string | null | undefined) {
+      this.preferenceUserId = userId || null;
+      this.preferences = userId
+        ? parsePreferences(localStorage.getItem(preferenceStorageKey(userId)))
+        : { ...defaultPreferences };
+    },
+
+    updatePreferences(changes: Partial<UserPreferences>) {
+      this.preferences = { ...this.preferences, ...changes };
+      if (this.preferenceUserId) {
+        localStorage.setItem(preferenceStorageKey(this.preferenceUserId), JSON.stringify(this.preferences));
+      }
+    },
+
+    resetPreferences() {
+      this.preferences = { ...defaultPreferences };
+      if (this.preferenceUserId) {
+        localStorage.removeItem(preferenceStorageKey(this.preferenceUserId));
+      }
+    },
+
     setSelectedTahun(year: string) {
       if (!/^\d{4}$/.test(year)) {
         throw new Error(`Tahun anggaran tidak valid: ${year}`);
@@ -101,17 +156,20 @@ export const useAppStore = defineStore('app', {
     async fetchCurrentUser() {
       try {
         const token = localStorage.getItem('sipanda_token');
-        const res = await fetch('/api/auth/me', {
+        const res = await apiFetch('/api/auth/me', {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         if (res.ok) {
           const data = await res.json();
           this.currentUser = data.user;
+          this.loadPreferences(data.user?.id);
           this.availableUsers = data.availableUsers || [];
           this.isAuthenticated = true;
           if (!localStorage.getItem('sipanda_token') && data.user) {
             localStorage.setItem('sipanda_token', 'session-token');
           }
+        } else if (res.status === 401) {
+          this.logout();
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
@@ -129,6 +187,7 @@ export const useAppStore = defineStore('app', {
         if (res.ok) {
           const data = await res.json();
           this.currentUser = data.user;
+          this.loadPreferences(data.user?.id);
           this.isAuthenticated = true;
           if (data.token) {
             localStorage.setItem('sipanda_token', data.token);
@@ -174,16 +233,66 @@ export const useAppStore = defineStore('app', {
       }
     },
 
+    async fetchNotifications() {
+      try {
+        const res = await apiFetch('/api/notifications');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal mengambil notifikasi');
+        this.notifications = data;
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+        throw error;
+      }
+    },
+
+    async sendNotification(payload: { title: string; message: string; opdId: string }) {
+      try {
+        const res = await apiFetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal mengirim notifikasi');
+        this.addToast(`Notifikasi berhasil dikirim ke ${data.sentCount} OPD.`, 'success');
+        await this.fetchNotifications();
+        return data as { success: true; sentCount: number };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Terjadi kesalahan saat mengirim notifikasi';
+        this.addToast(message, 'error');
+        throw error;
+      }
+    },
+
+    async markNotificationRead(id: string) {
+      try {
+        const res = await apiFetch(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal memperbarui notifikasi');
+        const notification = this.notifications.find(item => item.id === id);
+        if (notification) notification.readAt = data.readAt;
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+        throw error;
+      }
+    },
+
     async fetchMonitoring(tahun?: string) {
+      const requestId = ++this.monitoringRequestId;
+      this.monitoringReport = null;
+      this.monitoringList = [];
       try {
         const t = tahun || this.selectedTahun;
         const res = await apiFetch(`/api/stats/monitoring?tahun=${t}`);
-        if (res.ok) {
-          const data = await res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal mengambil monitoring kepatuhan');
+        if (requestId === this.monitoringRequestId) {
+          this.monitoringReport = data;
           this.monitoringList = data.opds;
         }
       } catch (err) {
         console.error('Failed to fetch monitoring:', err);
+        throw err;
       }
     },
 
@@ -272,7 +381,7 @@ export const useAppStore = defineStore('app', {
           }
           throw new Error(data.error || 'Gagal mengajukan dokumen');
         }
-        this.addToast('Dokumen berhasil diajukan ke Admin Bapperida untuk verifikasi!', 'success');
+        this.addToast('Dokumen induk dan lampiran otomatis berhasil diajukan ke Admin Bapperida untuk verifikasi!', 'success');
         await this.fetchDocuments();
         return data.document;
       } catch (err: any) {
@@ -285,6 +394,7 @@ export const useAppStore = defineStore('app', {
 
     async replaceRevisionFile(id: string, file: File) {
       try {
+        const isCompletingDraft = this.documents.find(doc => doc.id === id)?.status === 'Draft';
         const formData = new FormData();
         formData.append('file', file);
         const res = await apiFetch(`/api/documents/${id}/file`, {
@@ -297,7 +407,12 @@ export const useAppStore = defineStore('app', {
         }
         const index = this.documents.findIndex(doc => doc.id === id);
         if (index !== -1) this.documents[index] = data.document;
-        this.addToast('Berkas perbaikan berhasil diunggah. Ajukan ulang untuk verifikasi.', 'success');
+        this.addToast(
+          isCompletingDraft
+            ? 'Berkas dokumen berhasil diunggah. Draf siap dilanjutkan atau diajukan.'
+            : 'Berkas perbaikan berhasil diunggah. Ajukan ulang untuk verifikasi.',
+          'success'
+        );
         return data.document;
       } catch (err: any) {
         this.addToast(err.message || 'Terjadi kesalahan saat mengunggah berkas perbaikan', 'error');
@@ -307,6 +422,7 @@ export const useAppStore = defineStore('app', {
 
     logout() {
       this.currentUser = null;
+      this.loadPreferences(null);
       this.isAuthenticated = false;
       this.documents = [];
       this.opds = [];
@@ -330,7 +446,7 @@ export const useAppStore = defineStore('app', {
         }
         this.addToast(
           status === 'Disetujui'
-            ? 'Dokumen disetujui! Dokumen resmi diterbitkan dan masuk ke Arsip Daerah.'
+            ? 'Dokumen disetujui. Dokumen induk dan lampiran otomatis masuk ke Arsip pada Monitoring OPD.'
             : 'Catatan revisi berhasil dikirimkan ke OPD bersangkutan.',
           status === 'Disetujui' ? 'success' : 'info'
         );

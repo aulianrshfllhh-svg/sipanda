@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAppStore } from './stores/appStore';
 import MainLayout from './components/layout/MainLayout.vue';
@@ -53,6 +53,16 @@ const route = useRoute();
 
 const isEditorRoute = computed(() => route.path.startsWith('/editor/'));
 const isLoginRoute = computed(() => route.path === '/login');
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+const applyTheme = () => {
+  const isDark = store.preferences.theme === 'dark'
+    || (store.preferences.theme === 'system' && systemTheme.matches);
+  document.documentElement.classList.toggle('dark', isDark);
+};
+const onSystemThemeChange = () => {
+  if (store.preferences.theme === 'system') applyTheme();
+};
+watch(() => store.preferences.theme, applyTheme, { immediate: true });
 
 const getToastClass = (type: string) => {
   switch (type) {
@@ -63,8 +73,11 @@ const getToastClass = (type: string) => {
 };
 
 onMounted(async () => {
+  systemTheme.addEventListener('change', onSystemThemeChange);
   await store.fetchCurrentUser();
   await store.fetchOpds();
   await store.fetchDocuments();
 });
+
+onUnmounted(() => systemTheme.removeEventListener('change', onSystemThemeChange));
 </script>
