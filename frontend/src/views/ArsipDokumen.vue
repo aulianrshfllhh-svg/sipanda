@@ -279,6 +279,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { apiFetch } from '../lib/api';
+import { isPreviewDemo } from '../lib/preview-demo';
 import DocumentPageHeader from '../components/documents/DocumentPageHeader.vue';
 import DocumentTabs from '../components/documents/DocumentTabs.vue';
 import DocumentFilterBar from '../components/documents/DocumentFilterBar.vue';
@@ -483,6 +484,11 @@ function setDownload(blob: Blob, filename: string) {
 async function loadArchives() {
   loading.value = true;
   archiveError.value = '';
+  if (isPreviewDemo) {
+    archiveDocuments.value = [];
+    loading.value = false;
+    return;
+  }
   try {
     const response = await apiFetch('/api/archives');
     const data = await response.json();
