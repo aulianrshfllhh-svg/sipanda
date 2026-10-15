@@ -21,7 +21,32 @@
       </template>
     </DocumentPageHeader>
 
-    <DocumentTabs v-model="activeTab" :tabs="tabs" />
+    <div class="overflow-x-auto border-b border-slate-300 pb-1">
+      <div class="flex min-w-max items-center gap-1" role="tablist" aria-label="Jenis dokumen arsip">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          role="tab"
+          :aria-selected="isTabActive(tab.id)"
+          @click="selectTab(tab.id)"
+          class="inline-flex min-h-12 items-center gap-2 whitespace-nowrap border-b-2 px-4 text-sm font-semibold transition-colors"
+          :class="isTabActive(tab.id) ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'"
+        >
+          <component :is="tab.icon" class="h-4 w-4" />
+          {{ tab.label }}
+          <span
+            v-if="tab.id !== 'evaluasiRenja' && tab.id !== 'evaluasiRkpd' && tab.id !== 'lampiran'"
+            class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            :class="isTabActive(tab.id) ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'"
+          >{{ tab.count }}</span>
+          <span
+            v-else-if="tab.id === 'evaluasiRenja' || tab.id === 'evaluasiRkpd'"
+            class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+          >TW I-IV</span>
+        </button>
+      </div>
+    </div>
 
     <DocumentFilterBar :columns="4">
       <label class="relative block min-w-0">
@@ -277,11 +302,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAppStore } from '../stores/appStore';
 import { apiFetch } from '../lib/api';
 import { isPreviewDemo } from '../lib/preview-demo';
 import DocumentPageHeader from '../components/documents/DocumentPageHeader.vue';
-import DocumentTabs from '../components/documents/DocumentTabs.vue';
 import DocumentFilterBar from '../components/documents/DocumentFilterBar.vue';
 import DocumentEmptyState from '../components/documents/DocumentEmptyState.vue';
 import DocumentPagination from '../components/documents/DocumentPagination.vue';
@@ -293,7 +318,7 @@ import {
   FileSpreadsheet, Award, FileCheck, History, ExternalLink
 } from '@lucide/vue';
 
-type ArchiveTab = 'renja' | 'renstra' | 'rkpd' | 'rpjmd' | 'lampiran';
+type ArchiveTab = 'renja' | 'renstra' | 'rkpd' | 'rpjmd' | 'evaluasiRenja' | 'evaluasiRkpd' | 'lampiran';
 interface ArchiveDocument {
   id: string;
   parentId?: string | null;
@@ -324,6 +349,7 @@ interface StatusLog {
   olehNama?: string | null;
 }
 const store = useAppStore();
+const router = useRouter();
 const archiveDocuments = ref<ArchiveDocument[]>([]);
 const loading = ref(true);
 const archiveError = ref('');
@@ -351,6 +377,8 @@ const jenisByTab: Record<ArchiveTab, string[]> = {
   renstra: ['Renstra Murni', 'Renstra Perubahan', 'Renstra'],
   rkpd: ['RKPD', 'RKPD Murni', 'RKPD Perubahan'],
   rpjmd: ['RPJMD'],
+  evaluasiRenja: [],
+  evaluasiRkpd: [],
   lampiran: ['Lampiran Perbup Renja', 'Lampiran Kepbup Perubahan Renja', 'Lampiran Perbup Renstra', 'Lampiran Renja']
 };
 const activeJenisLabel = computed(() => `Semua Jenis ${
@@ -374,6 +402,7 @@ const matchesSearch = (doc: ArchiveDocument) => {
 };
 const matchesYear = (doc: ArchiveDocument, year = selectedYear.value) => year === 'all' || doc.tahun === year;
 const matchesTab = (doc: ArchiveDocument, tab = activeTab.value) => {
+  if (tab === 'evaluasiRenja' || tab === 'evaluasiRkpd') return false;
   if (tab === 'lampiran') return doc.isLampiranOtomatis === true;
   if (doc.isLampiranOtomatis) return false;
   if (tab === 'renja') return doc.jenis.includes('Renja');
@@ -396,18 +425,21 @@ const tabs = computed(() => {
         { id: 'renja', label: 'Renja', icon: BookOpen, count: 0 },
         { id: 'renstra', label: 'Renstra', icon: Folder, count: 0 },
         { id: 'rkpd', label: 'RKPD', icon: FileSpreadsheet, count: 0 },
-        { id: 'rpjmd', label: 'RPJMD', icon: Award, count: 0 }
+        { id: 'rpjmd', label: 'RPJMD', icon: Award, count: 0 },
+        { id: 'evaluasiRenja', label: 'Evaluasi Renja', icon: FileSpreadsheet, count: 0 },
+        { id: 'evaluasiRkpd', label: 'Evaluasi RKPD', icon: FileSpreadsheet, count: 0 }
       ]
     : store.isStaff
       ? [
           { id: 'renja', label: 'Renja OPD', icon: Folder, count: 0 },
-          { id: 'rkpd', label: 'RKPD ditugaskan', icon: FileSpreadsheet, count: 0 }
+          { id: 'rkpd', label: 'RKPD ditugaskan', icon: FileSpreadsheet, count: 0 },
+          { id: 'evaluasiRenja', label: 'Evaluasi Renja', icon: FileSpreadsheet, count: 0 }
         ]
       : [
           { id: 'renja', label: 'Renja', icon: Folder, count: 0 },
-          { id: 'renstra', label: 'Renstra', icon: FileSpreadsheet, count: 0 }
+          { id: 'renstra', label: 'Renstra', icon: FileSpreadsheet, count: 0 },
+          { id: 'evaluasiRenja', label: 'Evaluasi Renja', icon: FileSpreadsheet, count: 0 }
         ];
-  available.push({ id: 'lampiran', label: 'Format Lampiran', icon: FileCheck, count: 0 });
   available.push({ id: 'lampiran', label: 'Format Lampiran', icon: FileCheck, count: 0 });
   return available.map(tab => ({
     ...tab,
@@ -446,6 +478,22 @@ const alternativeYearCount = computed(() => archiveDocuments.value.filter(doc =>
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredDocuments.value.length / pageSize)));
 const paginatedDocuments = computed(() => filteredDocuments.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize));
 
+function isTabActive(tab: ArchiveTab) {
+  if (tab === 'evaluasiRenja') return router.currentRoute.value.path === '/evaluasi-renja-triwulan';
+  if (tab === 'evaluasiRkpd') return router.currentRoute.value.path === '/evaluasi-rkpd-triwulan';
+  if (tab === 'lampiran') return router.currentRoute.value.path === '/lampiran';
+  return activeTab.value === tab;
+}
+function selectTab(tab: ArchiveTab) {
+  const routePath = tab === 'evaluasiRenja' ? '/evaluasi-renja-triwulan'
+    : tab === 'evaluasiRkpd' ? '/evaluasi-rkpd-triwulan'
+      : tab === 'lampiran' ? '/lampiran' : '';
+  if (routePath) {
+    void router.push(routePath);
+    return;
+  }
+  activeTab.value = tab;
+}
 function registration(doc: ArchiveDocument) {
   return doc.nomerRegistrasiArsip || `ARS-${doc.tahun}-${doc.kodeDoc.split('-').pop() || 'ARSIP'}`;
 }
