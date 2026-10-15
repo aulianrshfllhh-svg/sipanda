@@ -240,7 +240,7 @@ const currentBreadcrumb = computed(() => {
   if (route.path === '/') return 'Dashboard Utama';
   if (route.path.startsWith('/dokumen')) return 'Dokumen Perencanaan';
   if (route.path.startsWith('/editor')) return 'Editor Template Dokumen';
-  if (route.path.startsWith('/arsip')) return 'Arsip Dokumen Internal & Daerah';
+  if (route.path.startsWith('/arsip')) return 'Arsip Dokumen';
   if (route.path.startsWith('/monitoring')) return route.query.opd ? 'Detail Arsip OPD' : 'Monitoring OPD Kabupaten Cirebon';
   if (route.path.startsWith('/verifikasi')) return 'Antrean Verifikasi Desk';
   if (route.path === '/pengaturan') return 'Pengaturan';

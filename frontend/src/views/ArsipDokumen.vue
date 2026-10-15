@@ -21,41 +21,7 @@
       </template>
     </DocumentPageHeader>
 
-    <div
-      v-if="store.isSuperAdmin || store.isStaff"
-      class="archive-source-control flex flex-wrap items-center gap-1.5 rounded-2xl bg-slate-100/80 p-1.5 shadow-2xs"
-      role="group"
-      aria-label="Sumber arsip"
-    >
-      <button
-        v-for="source in sourceOptions"
-        :key="source.id"
-        type="button"
-        @click="selectedSource = source.id"
-        class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors"
-        :class="selectedSource === source.id ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:bg-white/60'"
-      >
-        {{ source.label }}
-        <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-          {{ sourceCount(source.id) }}
-        </span>
-      </button>
-    </div>
-
     <DocumentTabs v-model="activeTab" :tabs="tabs" />
-
-    <div v-if="activeTab === 'renja' || activeTab === 'rkpd'" class="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
-      <button
-        v-for="variant in documentVariants"
-        :key="variant.id"
-        type="button"
-        @click="selectedVariant = variant.id"
-        class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-        :class="selectedVariant === variant.id ? 'bg-emerald-50 text-emerald-800' : 'text-slate-500 hover:bg-slate-50'"
-      >
-        {{ variant.label }}
-      </button>
-    </div>
 
     <DocumentFilterBar :columns="4">
       <label class="relative block min-w-0">
@@ -64,17 +30,15 @@
         <input
           v-model="searchText"
           type="search"
-          placeholder="Cari no. registrasi, judul, atau perangkat daerah..."
+          placeholder="Cari no. registrasi atau judul..."
           class="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
         />
       </label>
-      <label v-if="!store.isOpd" class="block min-w-0">
-        <span class="sr-only">Perangkat daerah</span>
-        <select v-model="selectedOpd" class="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:bg-white">
-          <option value="all">Semua Perangkat Daerah</option>
-          <optgroup v-for="group in opdGroups" :key="group.label" :label="group.label">
-            <option v-for="opd in group.items" :key="opd.id" :value="opd.id">{{ opd.nama }}</option>
-          </optgroup>
+      <label class="block min-w-0">
+        <span class="sr-only">Jenis dokumen</span>
+        <select v-model="selectedJenis" class="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 focus:bg-white">
+          <option value="all">{{ activeJenisLabel }}</option>
+          <option v-for="jenis in jenisOptions" :key="jenis" :value="jenis">{{ jenis }}</option>
         </select>
       </label>
       <label class="block min-w-0">
@@ -158,7 +122,7 @@
           <thead>
             <tr class="border-b border-slate-100 bg-slate-50/80 text-[10px] font-bold uppercase tracking-wider text-slate-500">
               <th class="w-[15%] px-3 py-3">No. Registrasi Arsip</th>
-              <th class="w-[26%] px-3 py-3">Dokumen &amp; Perangkat Daerah</th>
+              <th class="w-[26%] px-3 py-3">Dokumen</th>
               <th class="w-[10%] px-3 py-3">Jenis &amp; T.A.</th>
               <th class="w-[13%] px-3 py-3">Regulasi / Berita Acara (TTE)</th>
               <th class="w-[12%] px-3 py-3">Difinalkan</th>
@@ -179,7 +143,7 @@
                   <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><FileText class="h-4 w-4" /></div>
                   <div class="min-w-0">
                     <p class="truncate text-xs font-bold leading-snug text-slate-900" :title="item.judul">{{ item.judul }}</p>
-                    <p class="mt-0.5 truncate text-[11px] font-semibold text-slate-600">{{ item.opdName }}</p>
+                    <p v-if="!store.isOpd" class="mt-0.5 truncate text-[11px] font-semibold text-slate-600">{{ item.opdName }}</p>
                     <p class="mt-1 text-[10px] text-slate-400">Versi {{ version(item) }} · {{ templateLabel(item) }}</p>
                   </div>
                 </div>
@@ -225,7 +189,7 @@
             <div class="min-w-0">
               <p class="break-all font-mono text-[11px] font-bold text-slate-700">{{ registration(item) }}</p>
               <h2 class="mt-1 text-sm font-bold text-slate-900">{{ item.judul }}</h2>
-              <p class="mt-0.5 text-xs text-slate-500">{{ item.opdName }}</p>
+              <p v-if="!store.isOpd" class="mt-0.5 text-xs text-slate-500">{{ item.opdName }}</p>
             </div>
             <DocumentStatusBadge status="Final" class="shrink-0" />
           </div>
@@ -329,7 +293,6 @@ import {
 } from '@lucide/vue';
 
 type ArchiveTab = 'renja' | 'renstra' | 'rkpd' | 'rpjmd' | 'lampiran';
-type ArchiveSource = 'all' | 'internal' | 'opd';
 interface ArchiveDocument {
   id: string;
   parentId?: string | null;
@@ -359,17 +322,13 @@ interface StatusLog {
   waktu: string;
   olehNama?: string | null;
 }
-interface OpdRecord { id: string; nama: string; kategori?: string }
-
 const store = useAppStore();
 const archiveDocuments = ref<ArchiveDocument[]>([]);
 const loading = ref(true);
 const archiveError = ref('');
-const selectedSource = ref<ArchiveSource>('all');
 const activeTab = ref<ArchiveTab>('renja');
-const selectedVariant = ref<'all' | 'Murni' | 'Perubahan'>('all');
+const selectedJenis = ref('all');
 const selectedYear = ref(String(new Date().getFullYear()));
-const selectedOpd = ref('all');
 const searchText = ref('');
 const currentPage = ref(1);
 const pageSize = 10;
@@ -386,24 +345,20 @@ const unlockItem = ref<ArchiveDocument | null>(null);
 const unlockReason = ref('');
 const isUnlocking = ref(false);
 
-const sourceOptions: Array<{ id: ArchiveSource; label: string }> = [
-  { id: 'all', label: 'Semua' },
-  { id: 'internal', label: 'Internal Bapperida' },
-  { id: 'opd', label: 'Perangkat Daerah' }
-];
-const documentVariants = [
-  { id: 'all' as const, label: 'Semua' },
-  { id: 'Murni' as const, label: 'Murni' },
-  { id: 'Perubahan' as const, label: 'Perubahan' }
-];
-const opdGroups = computed(() => {
-  const groups = new Map<string, OpdRecord[]>();
-  for (const opd of store.opds as OpdRecord[]) {
-    const category = opd.kategori || 'Perangkat Daerah';
-    groups.set(category, [...(groups.get(category) || []), opd]);
-  }
-  return [...groups.entries()].map(([label, items]) => ({ label, items }));
-});
+const jenisByTab: Record<ArchiveTab, string[]> = {
+  renja: ['Renja Murni', 'Renja Perubahan'],
+  renstra: ['Renstra Murni', 'Renstra Perubahan', 'Renstra'],
+  rkpd: ['RKPD', 'RKPD Murni', 'RKPD Perubahan'],
+  rpjmd: ['RPJMD'],
+  lampiran: ['Lampiran Perbup Renja', 'Lampiran Kepbup Perubahan Renja', 'Lampiran Perbup Renstra', 'Lampiran Renja']
+};
+const activeJenisLabel = computed(() => `Semua Jenis ${
+  activeTab.value === 'rpjmd' ? 'RPJMD' :
+  activeTab.value === 'rkpd' ? 'RKPD' :
+  activeTab.value === 'lampiran' ? 'Lampiran' :
+  activeTab.value === 'renstra' ? 'Renstra' : 'Renja'
+}`);
+const jenisOptions = computed(() => jenisByTab[activeTab.value]);
 const years = computed(() => [...new Set([
   String(new Date().getFullYear()),
   ...archiveDocuments.value.map(doc => doc.tahun)
@@ -417,9 +372,6 @@ const matchesSearch = (doc: ArchiveDocument) => {
   ].some(value => value.toLocaleLowerCase().includes(query));
 };
 const matchesYear = (doc: ArchiveDocument, year = selectedYear.value) => year === 'all' || doc.tahun === year;
-const matchesOpd = (doc: ArchiveDocument) => selectedOpd.value === 'all' || doc.opdId === selectedOpd.value;
-const matchesSource = (doc: ArchiveDocument, source = selectedSource.value) =>
-  source === 'all' || (source === 'internal' ? doc.opdId === 'bapperida' : doc.opdId !== 'bapperida');
 const matchesTab = (doc: ArchiveDocument, tab = activeTab.value) => {
   if (tab === 'lampiran') return doc.isLampiranOtomatis === true;
   if (doc.isLampiranOtomatis) return false;
@@ -428,47 +380,44 @@ const matchesTab = (doc: ArchiveDocument, tab = activeTab.value) => {
   if (tab === 'rkpd') return doc.jenis.includes('RKPD');
   return doc.jenis === 'RPJMD';
 };
-const matchesVariant = (doc: ArchiveDocument) =>
-  selectedVariant.value === 'all' || doc.jenis.includes(selectedVariant.value);
+const matchesJenis = (doc: ArchiveDocument) => selectedJenis.value === 'all' || doc.jenis === selectedJenis.value;
 const baseDocuments = computed(() => archiveDocuments.value.filter(doc =>
   doc.status === 'Final' &&
   matchesYear(doc) &&
-  matchesOpd(doc) &&
   matchesSearch(doc)
 ));
 const filteredDocuments = computed(() => baseDocuments.value.filter(doc =>
-  matchesSource(doc) && matchesTab(doc) && matchesVariant(doc)
+  matchesTab(doc) && matchesJenis(doc)
 ));
 const tabs = computed(() => {
-  const available: Array<{ id: ArchiveTab; label: string; icon: typeof BookOpen; count: number }> = [
-    { id: 'renja', label: 'Renja', icon: BookOpen, count: 0 },
-    { id: 'renstra', label: 'Renstra', icon: Folder, count: 0 }
-  ];
-  if (!store.isOpd) {
-    available.push({ id: 'rkpd', label: 'RKPD', icon: FileSpreadsheet, count: 0 });
-    available.push({ id: 'rpjmd', label: 'RPJMD', icon: Award, count: 0 });
-  }
-  available.push({ id: 'lampiran', label: 'Format Lampiran Perbup/Kepbup', icon: FileCheck, count: 0 });
+  const available: Array<{ id: ArchiveTab; label: string; icon: typeof BookOpen; count: number }> = store.isSuperAdmin
+    ? [
+        { id: 'renja', label: 'Renja', icon: BookOpen, count: 0 },
+        { id: 'renstra', label: 'Renstra', icon: Folder, count: 0 },
+        { id: 'rkpd', label: 'RKPD', icon: FileSpreadsheet, count: 0 },
+        { id: 'rpjmd', label: 'RPJMD', icon: Award, count: 0 }
+      ]
+    : store.isStaff
+      ? [
+          { id: 'renja', label: 'Renja OPD', icon: Folder, count: 0 },
+          { id: 'rkpd', label: 'RKPD ditugaskan', icon: FileSpreadsheet, count: 0 }
+        ]
+      : [
+          { id: 'renja', label: 'Renja', icon: Folder, count: 0 },
+          { id: 'renstra', label: 'Renstra', icon: FileSpreadsheet, count: 0 }
+        ];
+  available.push({ id: 'lampiran', label: 'Format Lampiran', icon: FileCheck, count: 0 });
+  available.push({ id: 'lampiran', label: 'Format Lampiran', icon: FileCheck, count: 0 });
   return available.map(tab => ({
     ...tab,
     count: baseDocuments.value.filter(doc =>
-      matchesSource(doc) &&
       matchesTab(doc, tab.id) &&
-      (tab.id !== activeTab.value || matchesVariant(doc))
+      (tab.id !== activeTab.value || matchesJenis(doc))
     ).length
   }));
 });
-const sourceCount = (source: ArchiveSource) => archiveDocuments.value.filter(doc =>
-  doc.status === 'Final' &&
-  matchesYear(doc) &&
-  matchesOpd(doc) &&
-  matchesSearch(doc) &&
-  (source === 'all' || matchesSource(doc, source)) &&
-  matchesTab(doc) &&
-  matchesVariant(doc)
-).length;
 const allFinalDocuments = computed(() => archiveDocuments.value.filter(doc => doc.status === 'Final'));
-const hasFilters = computed(() => selectedYear.value !== 'all' || selectedOpd.value !== 'all' || searchText.value.trim().length > 0 || selectedSource.value !== 'all' || selectedVariant.value !== 'all');
+const hasFilters = computed(() => selectedYear.value !== 'all' || searchText.value.trim().length > 0 || selectedJenis.value !== 'all');
 const emptyTitle = computed(() => allFinalDocuments.value.length
   ? `Belum ada arsip${selectedYear.value === 'all' ? '' : ` untuk T.A. ${selectedYear.value}`}`
   : 'Belum ada dokumen Final');
@@ -478,11 +427,9 @@ const emptyDescription = computed(() => allFinalDocuments.value.length
 const alternativeYear = computed(() => {
   const matches = archiveDocuments.value.filter(doc =>
     doc.status === 'Final' &&
-    matchesOpd(doc) &&
     matchesSearch(doc) &&
-    matchesSource(doc) &&
     matchesTab(doc) &&
-    matchesVariant(doc) &&
+    matchesJenis(doc) &&
     doc.tahun !== selectedYear.value
   );
   return [...new Set(matches.map(doc => doc.tahun))]
@@ -491,11 +438,9 @@ const alternativeYear = computed(() => {
 const alternativeYearCount = computed(() => archiveDocuments.value.filter(doc =>
   doc.status === 'Final' &&
   doc.tahun === alternativeYear.value &&
-  matchesOpd(doc) &&
   matchesSearch(doc) &&
-  matchesSource(doc) &&
   matchesTab(doc) &&
-  matchesVariant(doc)
+  matchesJenis(doc)
 ).length);
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredDocuments.value.length / pageSize)));
 const paginatedDocuments = computed(() => filteredDocuments.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize));
@@ -521,9 +466,7 @@ function formatDate(value?: string | null) {
 }
 function resetFilters() {
   selectedYear.value = 'all';
-  selectedOpd.value = 'all';
-  selectedSource.value = 'all';
-  selectedVariant.value = 'all';
+  selectedJenis.value = 'all';
   searchText.value = '';
 }
 function toggleMenu(id: string) {
@@ -546,7 +489,6 @@ async function loadArchives() {
     if (!response.ok) throw new Error(data.error || 'Gagal memuat Arsip Dokumen');
     if (!Array.isArray(data)) throw new Error('Format data Arsip Dokumen tidak valid');
     archiveDocuments.value = data.filter((doc: ArchiveDocument) => doc.status === 'Final');
-    if (!store.opds.length) await store.fetchOpds();
   } catch (error) {
     archiveError.value = error instanceof Error ? error.message : 'Gagal memuat Arsip Dokumen';
   } finally {
@@ -668,11 +610,11 @@ async function unlockDocument() {
   }
 }
 
-watch([activeTab, selectedSource, selectedVariant, selectedYear, selectedOpd, searchText], () => {
+watch([activeTab, selectedJenis, selectedYear, searchText], () => {
   currentPage.value = 1;
   openMenuId.value = '';
 });
 watch(totalPages, pages => { currentPage.value = Math.min(currentPage.value, pages); });
-watch(activeTab, tab => { if (tab !== 'renja' && tab !== 'rkpd') selectedVariant.value = 'all'; });
+watch(activeTab, () => { selectedJenis.value = 'all'; });
 onMounted(loadArchives);
 </script>
