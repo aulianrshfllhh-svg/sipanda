@@ -5,7 +5,9 @@
   >
     <!-- Breadcrumbs -->
     <div class="min-w-0 flex items-center gap-2 text-xs text-slate-500 font-medium">
-      <span class="font-bold text-slate-700">SIPANDA</span>
+      <button v-if="route.path !== '/'" @click="goBack" class="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-slate-500 transition hover:bg-slate-100 hover:text-blue-700" aria-label="Kembali ke halaman sebelumnya" title="Kembali ke halaman sebelumnya"><ArrowLeft class="h-4 w-4"/><span class="hidden sm:inline">Kembali</span></button>
+      <span v-if="route.path !== '/'">&rsaquo;</span>
+      <button @click="router.push('/')" class="shrink-0 font-bold text-slate-700 hover:text-blue-700" title="Ke Dashboard SIPANDA">SIPANDA</button>
       <span>&rsaquo;</span>
       <span class="truncate text-blue-600 font-semibold">{{ currentBreadcrumb }}</span>
     </div>
@@ -196,11 +198,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '../../stores/appStore';
 import type { AppNotification } from '../../types';
 import { formatUserDate } from '../../lib/userDateFormat';
 import {
+  ArrowLeft,
   Calendar,
   HelpCircle,
   Bell,
@@ -212,6 +215,12 @@ import {
 
 const store = useAppStore();
 const route = useRoute();
+const router = useRouter();
+
+const goBack = () => {
+  if (window.history.state?.back) router.back();
+  else router.push('/');
+};
 
 const showYearDropdown = ref(false);
 const showNotifications = ref(false);

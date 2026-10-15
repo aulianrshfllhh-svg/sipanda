@@ -8,6 +8,77 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+async function seedFinalArchiveExamples(prisma, superAdmin) {
+  const opdById = new Map(ALL_OPDS.map(opd => [opd[0], opd]));
+  const examples = [
+    { id: 'archive-example-renja-bapperida-2025', kodeDoc: 'RENJA-BAPPER-2025-001', nomerRegistrasiArsip: 'ARS-2025-050-BAPP', jenis: 'Renja Murni', tahun: '2025', judul: 'Renja Definitif Bapperida Tahun 2025', opdId: 'bapperida', ba: 'BA.050/144/BAPP/2025' },
+    { id: 'archive-example-rkpd-2025', kodeDoc: 'RKPD-BAPPER-2025-001', nomerRegistrasiArsip: 'ARS-2025-051-BAPP', jenis: 'RKPD Murni', tahun: '2025', judul: 'RKPD Murni Kabupaten Cirebon Tahun 2025', opdId: 'bapperida' },
+    { id: 'archive-example-rpjmd-2025', kodeDoc: 'RPJMD-BAPPER-2025-001', nomerRegistrasiArsip: 'ARS-2025-052-BAPP', jenis: 'RPJMD', tahun: '2025', judul: 'RPJMD Kabupaten Cirebon Tahun 2025–2029', opdId: 'bapperida', ba: 'BA.050/146/BAPP/2025' },
+    { id: 'archive-example-renja-dinkes-2027', kodeDoc: 'RENJA-DINKES-2027-001', nomerRegistrasiArsip: 'ARS-2027-001-DINKES', jenis: 'Renja Murni', tahun: '2027', judul: 'Renja Dinas Kesehatan Tahun 2027', opdId: 'dinkes' },
+    { id: 'archive-example-renja-bkad-2027', kodeDoc: 'RENJA-BKAD-2027-001', nomerRegistrasiArsip: 'ARS-2027-001-BKAD', jenis: 'Renja Murni', tahun: '2027', judul: 'Renja Badan Keuangan dan Aset Daerah Tahun 2027', opdId: 'bkad', ba: 'BA.050/017/BKAD/2027' },
+    { id: 'archive-example-renstra-dinkes-2025', kodeDoc: 'RENSTRA-DINKES-2025-001', nomerRegistrasiArsip: 'ARS-2025-001-DINKES', jenis: 'Renstra Murni', tahun: '2025', judul: 'Renstra Dinas Kesehatan Tahun 2025–2029', opdId: 'dinkes' }
+  ];
+
+  for (const [index, sample] of examples.entries()) {
+    const opd = opdById.get(sample.opdId);
+    const finalizedAt = new Date(Date.UTC(Number(sample.tahun), 11, 15 + index));
+    const document = await prisma.document.create({
+      data: {
+        id: sample.id,
+        kodeDoc: sample.kodeDoc,
+        nomerRegistrasiArsip: sample.nomerRegistrasiArsip,
+        jenis: sample.jenis,
+        tahun: sample.tahun,
+        judul: sample.judul,
+        cara: 'template',
+        status: 'Final',
+        finalizedAt,
+        finalizedBy: superAdmin.id,
+        tteNumber: sample.ba || null,
+        regulation: sample.ba ? { nomorBerita: sample.ba } : undefined,
+        templateSnapshot: { nama: 'Template Permendagri 86/2017', versi: '1' },
+        opdId: sample.opdId,
+        opdName: opd[1],
+        createdById: superAdmin.id,
+        verifierName: superAdmin.nama,
+        verifierJabatan: superAdmin.jabatan,
+        sections: {
+          create: [{
+            babId: 'bab-1',
+            babTitle: 'BAB I PENDAHULUAN',
+            babOrder: 1,
+            isLocked: true,
+            subsections: [{
+              id: 'sub-1-1',
+              code: '1.1',
+              title: 'Latar Belakang',
+              content: `<p>Contoh arsip final ${sample.judul} untuk demonstrasi halaman Arsip Dokumen.</p>`
+            }]
+          }]
+        },
+        statusLogs: {
+          create: {
+            dari: 'Disetujui Bapperida',
+            ke: 'Final',
+            oleh: superAdmin.id,
+            alasan: 'Contoh data Arsip Final untuk pengujian tampilan.'
+          }
+        }
+      },
+      include: { sections: true, attachments: true }
+    });
+    const snapshot = JSON.parse(JSON.stringify({
+      capturedAt: finalizedAt.toISOString(),
+      document: { ...document, status: 'Final', finalizedAt, finalizedBy: superAdmin.id }
+    }));
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { finalSnapshot: snapshot }
+    });
+  }
+  console.log(`  ✓ ${examples.length} contoh dokumen Arsip Final dibuat`);
+}
+
 // ─── Helper: nomor romawi ────────────────────────────────────────────────────
 function roman(n) {
   let r = '';
@@ -90,6 +161,7 @@ async function main() {
   await prisma.penugasanLog.deleteMany();
   await prisma.penugasanVerifikasi.deleteMany();
   await prisma.document.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
@@ -101,6 +173,7 @@ async function main() {
   const roles = await Promise.all([
     prisma.role.create({ data: { kode: 'super_admin',     label: 'Super Admin (PPEPD)',     deskripsi: 'Akses penuh — Bidang PPEPD Bapperida' } }),
     prisma.role.create({ data: { kode: 'staf_bapperida',  label: 'Staf Bapperida',          deskripsi: 'Staf internal Bapperida dengan penugasan OPD tertentu' } }),
+    prisma.role.create({ data: { kode: 'penyusun_rkpd',   label: 'Penyusun RKPD',           deskripsi: 'Penyusun berkas Evaluasi RKPD Triwulan' } }),
     prisma.role.create({ data: { kode: 'opd',             label: 'Perangkat Daerah (OPD)',  deskripsi: 'Operator OPD — hanya akses dokumen milik OPD-nya' } }),
   ]);
   const roleMap = Object.fromEntries(roles.map(r => [r.kode, r]));
@@ -208,8 +281,8 @@ async function main() {
   }
   console.log('  ✓ Akun OPD dibuat');
 
-  // Standard planning templates only; demo/sample documents are intentionally omitted.
   await seedPlanning(prisma);
+  await seedFinalArchiveExamples(prisma, superAdmin);
   console.log('\n✅ Seeding selesai!');
   console.log('\n📋 Akun demo:');
   console.log('  Super Admin : username=admin            | password=admin123');

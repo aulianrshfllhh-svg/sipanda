@@ -3,21 +3,17 @@
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dokumen turunan otomatis</p>
-        <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Lampiran Renja / Renstra</h1>
-        <p class="mt-1 text-xs text-slate-500">Lampiran dibuat otomatis dan ikut diajukan ke Admin saat dokumen induk disubmit. Status lampiran mengikuti dokumen induk.</p>
+        <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Format Lampiran Perbup/Kepbup</h1>
+        <p class="mt-1 text-xs text-slate-500">Format Lampiran Perbup/Kepbup dibuat otomatis dan ikut diajukan ke Admin saat dokumen induk disubmit. Status lampiran mengikuti dokumen induk.</p>
       </div>
       <button @click="loadAnnexes" :disabled="loading" class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
         {{ loading ? 'Memuat...' : 'Muat Ulang' }}
       </button>
     </header>
 
-    <section class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
-      <label class="space-y-1 text-xs font-semibold text-slate-600">
-        Perangkat Daerah
-        <select v-model="filterOpd" disabled @change="loadAnnexes" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 disabled:bg-slate-100 disabled:text-slate-500">
-          <option v-for="opd in store.opds.filter(item => item.id === store.currentUser?.opdId)" :key="opd.id" :value="opd.id">{{ opd.nama }}</option>
-        </select>
-      </label>
+    <PlanningDocumentTabs />
+
+    <section class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
       <label class="space-y-1 text-xs font-semibold text-slate-600">
         Jenis Lampiran
         <select v-model="filterType" @change="loadAnnexes" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700">
@@ -135,6 +131,7 @@
 </template>
 
 <script setup lang="ts">
+import PlanningDocumentTabs from '../components/documents/PlanningDocumentTabs.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiFetch } from '../lib/api';
@@ -163,7 +160,6 @@ const dialogMode = ref<DialogMode>('preview');
 const previewHtml = ref('');
 const checks = ref<ValidationCheck[]>([]);
 const validationError = ref('');
-const filterOpd = ref('');
 const filterType = ref('');
 const filterYear = ref('');
 const configForm = ref({ nomorPeraturan: '', tahunPenetapan: '', nomorKepbup: '', tanggalKepbup: '' });
@@ -177,7 +173,8 @@ function periodLabel(annex: Annex) {
 }
 
 function statusClass(status?: string) {
-  if (status === 'Disetujui') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'Disetujui Bapperida') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'Final') return 'bg-emerald-800 text-white';
   if (status === 'Perlu Revisi') return 'bg-amber-100 text-amber-800';
   if (status === 'Menunggu Verifikasi') return 'bg-blue-100 text-blue-700';
   return 'bg-slate-100 text-slate-600';
@@ -187,7 +184,6 @@ async function loadAnnexes() {
   loading.value = true;
   errorMessage.value = '';
   const params = new URLSearchParams();
-  if (filterOpd.value) params.set('opdId', filterOpd.value);
   if (filterType.value) params.set('jenis', filterType.value);
   if (filterYear.value) params.set('tahun', filterYear.value);
   try {
@@ -319,7 +315,6 @@ function closeDialog() {
 
 onMounted(async () => {
   if (!store.opds.length) await store.fetchOpds();
-  filterOpd.value = store.currentUser?.opdId || '';
   const queryType = String(route.query.jenis || '');
   if (annexTypes.includes(queryType)) filterType.value = queryType;
   await loadAnnexes();

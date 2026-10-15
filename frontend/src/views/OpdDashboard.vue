@@ -65,7 +65,7 @@
 
       <div class="flex min-h-[104px] flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Disetujui &amp; Terbit BA</span>
+          <span class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Disetujui Bapperida</span>
           <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">Sah</span>
         </div>
         <div class="flex items-baseline gap-1.5">
@@ -138,7 +138,21 @@
                   <div class="mt-0.5 text-[9px] text-slate-400">Diperbarui</div>
               </td>
               <td class="px-3 py-2.5">
+                  <div v-if="doc.status === 'Disetujui Bapperida'" class="space-y-1">
+                    <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <span class="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                      Menunggu Verifikasi Final
+                    </span>
+                    <div class="flex items-center gap-1 text-[8px] text-slate-400 font-medium">
+                      <span class="text-emerald-600 font-semibold">Verifikasi 1 ✓</span>
+                      <span>›</span>
+                      <span class="text-indigo-700 font-bold bg-indigo-100/80 px-1 rounded">Tahap Final</span>
+                      <span>›</span>
+                      <span>Final</span>
+                    </div>
+                  </div>
                   <span
+                    v-else
                     class="inline-flex items-center gap-1 rounded px-2 py-1 text-[9px] font-bold"
                     :class="getStatusPill(doc.status)"
                   >
@@ -148,8 +162,11 @@
               </td>
               <td class="px-3 py-2.5">
                 <div class="flex items-center justify-end gap-1.5">
+                  <span v-if="doc.status === 'Disetujui Bapperida'" class="text-[9px] font-semibold text-slate-400 italic">
+                    Dalam Telaah Final
+                  </span>
                   <button
-                    v-if="doc.status === 'Disetujui'"
+                    v-else-if="doc.status === 'Final'"
                     @click="router.push('/arsip')"
                     class="inline-flex items-center gap-1 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[9px] font-bold text-blue-700 transition-colors hover:bg-blue-100"
                   >
@@ -342,7 +359,7 @@ const opdDocs = computed(() => {
 const drafCount = computed(() => opdDocs.value.filter(d => d.status === 'Draft').length);
 const waitingCount = computed(() => opdDocs.value.filter(d => d.status === 'Menunggu Verifikasi').length);
 const revisionCount = computed(() => opdDocs.value.filter(d => d.status === 'Perlu Revisi').length);
-const approvedCount = computed(() => opdDocs.value.filter(d => d.status === 'Disetujui').length);
+const approvedCount = computed(() => opdDocs.value.filter(d => d.status === 'Disetujui Bapperida').length);
 const activeRevisionNotes = computed(() => opdDocs.value
   .filter(doc => doc.status === 'Perlu Revisi')
   .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
@@ -389,14 +406,14 @@ const docStatusTabs = computed(() => [
   { label: 'Draf', count: drafCount.value },
   { label: 'Review', count: waitingCount.value },
   { label: 'Perlu Revisi', count: revisionCount.value },
-  { label: 'Disetujui', count: approvedCount.value }
+  { label: 'Disetujui Bapperida', count: approvedCount.value }
 ]);
 
 const filteredOpdDocs = computed(() => {
   if (docTableTab.value === 'Draf') return opdDocs.value.filter(d => d.status === 'Draft');
   if (docTableTab.value === 'Review') return opdDocs.value.filter(d => d.status === 'Menunggu Verifikasi');
   if (docTableTab.value === 'Perlu Revisi') return opdDocs.value.filter(d => d.status === 'Perlu Revisi');
-  if (docTableTab.value === 'Disetujui') return opdDocs.value.filter(d => d.status === 'Disetujui');
+  if (docTableTab.value === 'Disetujui Bapperida') return opdDocs.value.filter(d => d.status === 'Disetujui Bapperida');
   return opdDocs.value;
 });
 
@@ -405,7 +422,8 @@ const getStatusPill = (status: string) => {
     case 'Draft': return 'bg-slate-100 text-slate-700';
     case 'Menunggu Verifikasi': return 'bg-amber-100 text-amber-700';
     case 'Perlu Revisi': return 'bg-red-100 text-red-700';
-    case 'Disetujui': return 'bg-emerald-100 text-emerald-700';
+    case 'Disetujui Bapperida': return 'bg-emerald-100 text-emerald-700';
+    case 'Final': return 'bg-emerald-800 text-white';
     default: return 'bg-slate-100 text-slate-700';
   }
 };

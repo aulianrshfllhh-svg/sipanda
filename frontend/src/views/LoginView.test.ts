@@ -16,12 +16,12 @@ vi.mock('@lucide/vue', () => {
   };
 });
 
-async function mountLogin() {
+async function mountLogin(path = '/login') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/login', component: LoginView }]
   });
-  await router.push('/login');
+  await router.push(path);
   await router.isReady();
   const icon = { template: '<span aria-hidden="true" />' };
   return mount(LoginView, {
@@ -55,6 +55,14 @@ describe('LoginView', () => {
     expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true);
     expect(wrapper.find('input[autocomplete="current-password"]').exists()).toBe(true);
     expect(wrapper.find('select[aria-label="Tahun Rencana atau Anggaran"]').exists()).toBe(true);
+    expect(wrapper.findAll('select[aria-label="Tahun Rencana atau Anggaran"] option')).toHaveLength(5);
+    expect((wrapper.get('select[aria-label="Tahun Rencana atau Anggaran"]').element as HTMLSelectElement).value).toBe(String(new Date().getFullYear()));
+  });
+
+  it('menampilkan sesi berakhir sebagai banner status', async () => {
+    const wrapper = await mountLogin('/login?expired=1');
+    expect(wrapper.get('[role="status"]').text()).toContain('Sesi Anda telah berakhir');
+    expect(wrapper.find('.session-alert').element).toBeTruthy();
   });
 
   it('menampilkan pesan API saat kredensial ditolak', async () => {

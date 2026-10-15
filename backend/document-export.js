@@ -8,6 +8,9 @@ import {renderDocument} from './document-render.js';
 import {documentSettings,validateCoverLogo} from './document-settings.js';
 import {restoreSourceTableWidths} from './document-import.js';
 import {sourcePdf,sourceDocx,wordToPdf,pdfPreview} from './annex-source.js';
+import JSZip from 'jszip';
+import {createHash} from 'node:crypto';
+import { canViewFinalArchive } from './archive-access.js';
 const pagination=fs.readFileSync(new URL('../shared/paginate.js',import.meta.url),'utf8');
 const executable=()=>[process.env.CHROME_PATH,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/usr/bin/chromium','/usr/bin/google-chrome'].find(p=>p&&fs.existsSync(p));
 export async function openRenderedDocument(html){
@@ -24,10 +27,17 @@ export async function openRenderedDocument(html){
  }catch(e){await browser.close();throw e;}
 }
 export function registerExportRoutes(app,prisma,auth,permissions){
- async function load(req,res){
+ async function load(req,res,archiveOnly=false){
   let doc=await prisma.document.findUnique({where:{id:req.params.id},include:{sections:{orderBy:{babOrder:'asc'}}}});
   if(!doc){res.status(404).json({error:'Dokumen tidak ditemukan'});return;}
-  if(!(await permissions(req.currentUser,doc)).canView){res.status(403).json({error:'Dokumen tidak termasuk penugasan Anda'});return;}
+  if(archiveOnly&&doc.status!=='Final'){res.status(404).json({error:'Arsip Final tidak ditemukan'});return;}
+  const allowed=archiveOnly?await canViewFinalArchive(req.currentUser,doc,prisma):(await permissions(req.currentUser,doc)).canView;
+  if(!allowed){res.status(404).json({error:archiveOnly?'Arsip Final tidak ditemukan':'Dokumen tidak termasuk penugasan Anda'});return;}
+  if(archiveOnly){
+   const snapshot=doc.finalSnapshot?.document;
+   if(!snapshot||snapshot.status!=='Final'){res.status(404).json({error:'Snapshot final tidak tersedia'});return;}
+   doc={...doc,...snapshot,status:'Final'};
+  }
   let sourceFile=doc.filePath;
   if(doc.cara==='upload'&&!doc.isLampiranOtomatis&&!sourceFile?.startsWith('/uploads/'))throw new Error('Berkas unggahan belum tersedia. Lengkapi berkas sumber untuk ditelaah; tampilan template tidak digunakan sebagai pengganti.');
   if(!sourceFile&&doc.isLampiranOtomatis&&doc.parentId){
@@ -112,6 +122,9 @@ export function registerExportRoutes(app,prisma,auth,permissions){
  app.get('/api/documents/:id/preview',auth,async(req,res)=>{
   try{const item=await load(req,res);if(item)res.type('html').send(item.source?pdfPreview(item.sourceFormat==='pdf'?item.source.bytes:await wordToPdf(item.source.bytes,item.source.fileName)):item.html);}catch(e){console.error(e);res.status(422).json({error:`Gagal menyiapkan pratinjau: ${e.message}`});}
  });
+ app.get('/api/archives/:id/preview',auth,async(req,res)=>{
+  try{const item=await load(req,res,true);if(item)res.type('html').send(item.source?pdfPreview(item.sourceFormat==='pdf'?item.source.bytes:await wordToPdf(item.source.bytes,item.source.fileName)):item.html);}catch(e){console.error(e);res.status(422).json({error:`Gagal menyiapkan pratinjau final: ${e.message}`});}
+ });
  app.get('/api/annexes/:id/validation',auth,async(req,res)=>{
   let browser;
   try{
@@ -152,28 +165,27 @@ export function registerExportRoutes(app,prisma,auth,permissions){
   }catch(e){console.error(e);res.status(500).json({error:`Gagal memeriksa format lampiran: ${e.message}`});}
   finally{if(browser)await browser.close();}
  });
- app.get('/api/export/:format/:id',auth,async(req,res)=>{
-  if(!['docx','docx-editable','pdf'].includes(req.params.format))return res.status(400).json({error:'Format ekspor tidak valid'});
+ async function createExport(item,format){
   let browser;
   try{
-   const item=await load(req,res);if(!item)return;
    if(!item.source&&!item.doc.isLampiranOtomatis){
     const logoError=validateCoverLogo(item.settings.global?.logoData||'');
     if(logoError)throw Object.assign(new Error(logoError),{status:422});
    }
    let data;
+   let contentType;
    if(item.source){
-    if(req.params.format!=='pdf'&&item.sourceFormat!=='docx')return res.status(422).json({error:`Sumber berupa ${item.sourceFormat.toUpperCase()}. Unduh PDF untuk mempertahankan tata letak asli, atau unggah DOCX jika membutuhkan keluaran Word.`});
-    data=req.params.format==='pdf'&&item.sourceFormat!=='pdf'?await wordToPdf(item.source.bytes,item.source.fileName):item.source.bytes;
-    res.type(req.params.format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    if(format!=='pdf'&&item.sourceFormat!=='docx')throw Object.assign(new Error(`Sumber berupa ${item.sourceFormat.toUpperCase()}. Unduh PDF untuk mempertahankan tata letak asli, atau unggah DOCX jika membutuhkan keluaran Word.`),{status:422});
+    data=format==='pdf'&&item.sourceFormat!=='pdf'?await wordToPdf(item.source.bytes,item.source.fileName):item.source.bytes;
+    contentType=format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
    }else{
    const result=await openRenderedDocument(item.html);browser=result.browser;const page=result.page;
-   if(req.params.format==='pdf'){
+   if(format==='pdf'){
     data=await page.pdf({printBackground:true,preferCSSPageSize:true});
-    res.type('application/pdf');
-   }else if(req.params.format==='docx-editable'||item.doc.isLampiranOtomatis){
+    contentType='application/pdf';
+   }else if(format==='docx-editable'||item.doc.isLampiranOtomatis){
     data=await editableDocx(page,item.doc.judul,{annex:item.doc.isLampiranOtomatis===true});
-    res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
    }else{
     // Fixed-layout Word export: use the exact rendered pages, including fonts and pagination.
     const pages=await page.$$('.paper'),sections=[];
@@ -185,16 +197,61 @@ export function registerExportRoutes(app,prisma,auth,permissions){
      sections.push({properties:{page:{size:{...size,orientation:landscape?PageOrientation.LANDSCAPE:PageOrientation.PORTRAIT},margin:{top:0,bottom:0,left:0,right:0,header:0,footer:0}}},children:[new Paragraph({spacing:{before:0,after:0,line:1},children:[new ImageRun({type:'png',data:png,transformation:{width,height},floating:{horizontalPosition:{relative:'page',offset:0},verticalPosition:{relative:'page',offset:0},allowOverlap:true,behindDocument:false}})]})]});
     }
     data=await Packer.toBuffer(new Document({creator:'SIPANDA',title:item.doc.judul,description:'Ekspor dengan tata letak tetap. Edit isi melalui SIPANDA.',styles:{default:{document:{run:{font:item.doc.isLampiranOtomatis?'Bookman Old Style':'Times New Roman',size:24}}}},sections}));
-    res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    contentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
    }
    }
    const annexPeriod=item.doc.regulation?.periodeMulai&&item.doc.regulation?.periodeAkhir&&item.doc.regulation.periodeMulai!==item.doc.regulation.periodeAkhir?`${item.doc.regulation.periodeMulai}-${item.doc.regulation.periodeAkhir}`:item.doc.tahun;
    const fileBase=item.doc.isLampiranOtomatis
     ? `Lampiran ${item.settings.opdRecord.nomorLampiran} ${item.doc.jenis.replace(/^Lampiran\s+/,'')} ${item.settings.opdRecord.nama} ${item.doc.jenis==='Lampiran Perbup Renstra'?annexPeriod:item.doc.tahun}`
     : item.doc.kodeDoc;
-   res.setHeader('Content-Disposition',`attachment; filename="${fileBase.replace(/[^a-zA-Z0-9 _-]/g,'_')}.${req.params.format==='pdf'?'pdf':'docx'}"`);
-   res.send(Buffer.from(data));
+   const buffer=Buffer.from(data);
+   return {
+    buffer,
+    contentType,
+    fileName:`${fileBase.replace(/[^a-zA-Z0-9 _-]/g,'_')}.${format==='pdf'?'pdf':'docx'}`,
+    sha256:createHash('sha256').update(buffer).digest('hex')
+   };
+  }finally{if(browser)await browser.close();}
+ }
+ async function sendExport(req,res,archiveOnly=false){
+  const format=req.params.format;
+  if(!['docx','docx-editable','pdf'].includes(format))return res.status(400).json({error:'Format ekspor tidak valid'});
+  try{
+   const item=await load(req,res,archiveOnly);if(!item)return;
+   const output=await createExport(item,format);
+   res.type(output.contentType).set({
+    'Content-Disposition':`attachment; filename="${output.fileName}"`,
+    'X-Content-SHA256':output.sha256,
+    'Cache-Control':'private, no-store',
+    'X-Content-Type-Options':'nosniff'
+   });
+   res.send(output.buffer);
   }catch(e){console.error(e);res.status(e.status||500).json({error:`Gagal mengekspor dokumen: ${e.message}`});}
-  finally{if(browser)await browser.close();}
+ }
+ app.get('/api/export/:format/:id',auth,(req,res)=>sendExport(req,res));
+ app.get('/api/archives/:id/export/:format',auth,(req,res)=>sendExport(req,res,true));
+ app.post('/api/archives/bundle',auth,async(req,res)=>{
+  const ids=Array.isArray(req.body?.ids)?[...new Set(req.body.ids.filter(id=>typeof id==='string'))]:[];
+  if(!ids.length||ids.length>25)return res.status(400).json({error:'Pilih 1 sampai 25 dokumen Final untuk bundel ZIP'});
+  const zip=new JSZip();
+  const manifest=[];
+  try{
+   for(const id of ids){
+    const item=await load({params:{id},currentUser:req.currentUser},res,true);
+    if(!item)return;
+    for(const format of ['pdf','docx']){
+     const output=await createExport(item,format);
+     const fileName=`${item.doc.nomerRegistrasiArsip||item.doc.kodeDoc}/${item.doc.nomerRegistrasiArsip||item.doc.kodeDoc}.${format}`;
+     zip.file(fileName,output.buffer);
+     manifest.push({documentId:item.doc.id,registration:item.doc.nomerRegistrasiArsip||item.doc.kodeDoc,fileName,format,sha256:output.sha256});
+    }
+   }
+   zip.file('manifest.json',JSON.stringify({generatedAt:new Date().toISOString(),files:manifest},null,2));
+   const bundle=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
+   res.type('application/zip').setHeader('Content-Disposition','attachment; filename="arsip-final-sipanda.zip"').send(bundle);
+  }catch(error){
+   console.error('Failed to build final archive bundle:',error);
+   res.status(error.status||500).json({error:error.status===422?error.message:'Gagal menyiapkan bundel Arsip Final'});
+  }
  });
 }

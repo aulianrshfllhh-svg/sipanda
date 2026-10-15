@@ -35,8 +35,8 @@ export interface OPD {
   kategori: string;
 }
 
-export type DocumentType = 'Renja Murni' | 'Renja Perubahan' | 'Lampiran Renja' | 'Lampiran Perbup Renja' | 'Lampiran Kepbup Perubahan Renja' | 'Lampiran Perbup Renstra' | 'Renstra' | 'Renstra Murni' | 'Renstra Perubahan' | 'RKPD' | 'RKPD Murni' | 'RKPD Perubahan' | 'RPJMD';
-export type DocumentStatus = 'Draft' | 'Menunggu Verifikasi' | 'Perlu Revisi' | 'Disetujui';
+export type DocumentType = 'Renja Murni' | 'Renja Perubahan' | 'Lampiran Renja' | 'Lampiran Perbup Renja' | 'Lampiran Kepbup Perubahan Renja' | 'Lampiran Perbup Renstra' | 'Renstra' | 'Renstra Murni' | 'Renstra Perubahan' | 'RKPD' | 'RKPD Murni' | 'RKPD Perubahan' | 'Evaluasi RKPD Triwulan' | 'RPJMD';
+export type DocumentStatus = 'Draft' | 'Menunggu Verifikasi' | 'Perlu Revisi' | 'Disetujui Bapperida' | 'Final';
 export type DocumentMethod = 'template' | 'upload';
 
 export interface Subsection {
@@ -56,6 +56,8 @@ export interface Section {
   title: string;
   locked: boolean;
   subsections: Subsection[];
+  updatedAt?: string;
+  lastEditedBy?: { id: string; nama: string } | null;
 }
 
   export interface DocumentItem {
@@ -100,6 +102,8 @@ export interface Section {
   tteNumber?: string | null;
   parentId?: string | null;
   isLampiranOtomatis?: boolean;
+  versions?: Array<{ id: string; versi: number; createdAt: string }>;
+  penugasanBab?: Array<{ babId: string; userId?: string; user?: { id: string; nama: string; avatar?: string | null } }>;
   permissions?: {
     canEdit: boolean;
     canVerify: boolean;
@@ -130,6 +134,9 @@ export interface PlanningComplianceItem {
   tteNumber: string | null;
   approved: boolean;
   parentStatus?: string;
+  verifierName?: string | null;
+  lastUpdatedAt?: string | null;
+  submittedAt?: string | null;
 }
 
 export interface MonitoringItem {
@@ -157,6 +164,7 @@ export interface PlanningComplianceReport {
   optionalSubmittedDocuments: number;
   totalDocuments: number;
   completionRate: number;
+  batasWaktu?: string | null;
   opds: MonitoringItem[];
 }
 
@@ -168,4 +176,53 @@ export interface AppNotification {
   readAt: string | null;
   senderName: string | null;
   opdName: string | null;
+}
+
+export interface VerificationQueueItem {
+  id: string;
+  kodeDoc: string;
+  judul: string;
+  subJudul?: string;
+  jenis: string;
+  tahun: string;
+  opdId: string;
+  opdName: string;
+  status: string;
+  tanggalDiajukan?: string;
+  tanggalDisetujui?: string;
+  lamaMenungguHari: number;
+  lamaMenungguText: string;
+  isOverdue: boolean;
+  verifikatorBertugas?: string;
+  disetujuiOleh?: string;
+  hasCorrection?: boolean;
+  cara: string;
+  canVerify?: boolean;
+  canFinalize?: boolean;
+  tteNumber?: string;
+}
+
+export interface VerificationSummary {
+  success: boolean;
+  batasHariVerifikasi: number;
+  counts: {
+    menungguVerifikasi1: number;
+    menungguVerifikasi1Overdue: number;
+    menungguVerifikasiFinal: number;
+    menungguVerifikasiFinalOverdue: number;
+    perluRevisi: number;
+    final: number;
+    finalBulanIni: number;
+    finalTahunIni: number;
+  };
+  pipeline: {
+    draft: number;
+    menungguVerifikasi1: number;
+    perluRevisi: number;
+    menungguVerifikasiFinal: number;
+    final: number;
+  };
+  antreanVerifikasi1: VerificationQueueItem[];
+  antreanVerifikasiFinal: VerificationQueueItem[];
+  opdSummary?: any[];
 }

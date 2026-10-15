@@ -1,149 +1,227 @@
 <template>
   <main class="login-page">
-    <div class="login-backdrop" aria-hidden="true">
-      <div class="backdrop-glow"></div>
-      <div class="backdrop-grid"></div>
-    </div>
-
-    <header class="system-bar">
-      <div class="system-identity">
-        <span class="system-mark" aria-hidden="true"></span>
-        <span>SIPANDA Online</span>
-        <span class="system-divider">|</span>
-        <span>Pemerintah Daerah Kabupaten Cirebon</span>
-      </div>
-      <div class="system-tools">
-        <span class="fiscal-year">
-          <CalendarDays aria-hidden="true" />
-          Tahun Anggaran {{ selectedYear }}/{{ Number(selectedYear) + 1 }}
-        </span>
-        <span class="help-label"><CircleHelp aria-hidden="true" /> Pusat Bantuan</span>
-      </div>
-    </header>
-
-    <div class="login-content">
-      <section class="login-card" aria-labelledby="login-title">
-        <div class="branding-panel">
-          <div class="district-identity">
-            <KabCirebonLogo :width="34" :height="42" custom-class="district-emblem" />
-            <div>
-              <strong>PEMERINTAH KABUPATEN CIREBON</strong>
-              <span>Bapperida</span>
-            </div>
-          </div>
-          <div class="sipanda-brand" aria-label="SIPANDA">
-            <svg class="sipanda-emblem" viewBox="540 60 740 570" aria-hidden="true">
-              <image href="/images/sipanda-logo-20261005.png" width="1800" height="874" />
-            </svg>
-            <span>SIPANDA</span>
-          </div>
-          <div class="branding-copy">
-            <h1 id="login-title">Sistem Informasi Perencanaan Daerah</h1>
-            <p>Kabupaten Cirebon</p>
-          </div>
-          <div class="security-note">
-            <ShieldCheck aria-hidden="true" />
-            <span>Tersertifikasi Keamanan &amp; BSR-E BSSN</span>
+    <section class="login-card" aria-labelledby="login-title">
+      <header class="login-header">
+        <div class="brand-group">
+          <img class="brand-logo" src="/images/sipanda-logo-20261005.png" alt="SIPANDA" />
+          <span class="brand-divider" aria-hidden="true"></span>
+          <div class="agency-name">
+            <strong>BAPPERIDA</strong>
+            <span>Kabupaten Cirebon</span>
           </div>
         </div>
 
-        <div class="form-panel">
+        <div class="header-tools">
+          <label class="sr-only">
+            Tahun Rencana atau Anggaran
+            <select v-model="selectedYear" aria-label="Tahun Rencana atau Anggaran">
+              <option v-for="availableYear in loginAvailableYears" :key="availableYear" :value="availableYear">
+                {{ availableYear }}
+              </option>
+            </select>
+          </label>
+          <span class="system-pill"><span aria-hidden="true"></span>Sistem Terintegrasi v3.2</span>
+        </div>
+      </header>
+
+      <div class="login-main">
+        <section class="form-panel">
           <div class="form-heading">
-            <h2>Masuk ke Sistem</h2>
-            <p>Silakan masukkan kredensial akun OPD / Verifikator Anda.</p>
+            <h1 id="login-title">Login</h1>
+            <p>Selamat datang di Sistem Informasi Perencanaan<br class="desktop-break" /> Daerah Kabupaten Cirebon.</p>
           </div>
+
           <form @submit.prevent="handleLogin" class="login-form">
             <label class="field-group">
-              <span>Username / NIP</span>
-              <span class="field">
-                <UserRound class="field-icon" aria-hidden="true" />
+              <span>Email / NIP / Username</span>
               <input
                 v-model="username"
                 type="text"
-                placeholder="Masukkan NIP atau Username SIASN"
+                placeholder="Masukkan email, NIP, atau username"
                 autocomplete="username"
                 required
               />
-              </span>
             </label>
 
             <label class="field-group">
               <span>Password</span>
-              <span class="field password-field">
-                <LockKeyhole class="field-icon" aria-hidden="true" />
-              <input
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="Masukkan password"
-                autocomplete="current-password"
-                required
-              />
-              <button
-                type="button"
-                class="password-toggle"
-                :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
-                :aria-pressed="showPassword"
-                @click="showPassword = !showPassword"
-              >
-                <svg v-if="!showPassword" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
-                  <circle cx="12" cy="12" r="2.5" />
-                </svg>
-                <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m3 3 18 18M10.6 6.1A10.8 10.8 0 0 1 12 6c6.4 0 10 6 10 6a15.8 15.8 0 0 1-3.1 3.6M6.2 6.2C3.5 8 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.6" />
-                </svg>
-              </button>
+              <span class="password-field">
+                <input
+                  v-model="password"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="Please enter your password"
+                  autocomplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  class="password-toggle"
+                  :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+                  :aria-pressed="showPassword"
+                  @click="showPassword = !showPassword"
+                >
+                  <svg v-if="!showPassword" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m3 3 18 18M10.6 6.1A10.8 10.8 0 0 1 12 6c6.4 0 10 6 10 6a15.8 15.8 0 0 1-3.1 3.6M6.2 6.2C3.5 8 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.6" />
+                  </svg>
+                </button>
               </span>
             </label>
 
-            <label class="field-group">
-              <span>Tahun Rencana / Anggaran</span>
-              <span class="select-wrap">
-                <select v-model="selectedYear" aria-label="Tahun Rencana atau Anggaran">
-                  <option v-for="availableYear in store.availableYears" :key="availableYear" :value="availableYear">
-                    Tahun Anggaran {{ availableYear }}
-                  </option>
-                </select>
-                <ChevronDown aria-hidden="true" />
-              </span>
-            </label>
-
-            <p v-if="sessionExpired" class="login-error" role="status">Sesi Anda telah berakhir. Silakan masuk kembali untuk melanjutkan.</p>
-            <p v-if="errorMessage" class="login-error" role="alert">{{ errorMessage }}</p>
+            <p v-if="sessionExpired" class="login-alert session-alert" role="status">
+              Sesi Anda telah berakhir. Silakan masuk kembali untuk melanjutkan.
+            </p>
+            <p v-if="errorMessage" class="login-alert" role="alert">{{ errorMessage }}</p>
 
             <button type="submit" class="submit-button" :disabled="isLoading">
               <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
-              {{ isLoading ? 'Memproses...' : 'Sign In / Masuk Sistem' }}
+              {{ isLoading ? 'Memproses...' : 'LOGIN' }}
             </button>
           </form>
 
-          <div class="form-footer">
-            <span>Belum punya akun? <strong>Hubungi Bapperida</strong></span>
-            <span class="version">v2.0.0 · SIPANDA</span>
-          </div>
-        </div>
-      </section>
-    </div>
+          <section v-if="isDemoMode" class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Akun preview">
+            <p class="text-xs font-bold text-amber-900">Preview demo — pilih peran untuk masuk</p>
+            <p class="mt-1 text-[11px] leading-relaxed text-amber-800">Gunakan data contoh. Login ini hanya untuk pratinjau, bukan akun sistem resmi.</p>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <button type="button" class="rounded-lg bg-blue-700 px-3 py-2.5 text-xs font-bold text-white hover:bg-blue-800" @click="loginDemo('preview-admin')">Masuk sebagai Admin</button>
+              <button type="button" class="rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-xs font-bold text-blue-800 hover:bg-blue-50" @click="loginDemo('preview-opd-kesehatan')">Masuk sebagai OPD</button>
+            </div>
+          </section>
 
-    <footer class="copyright">
-      <span>© {{ year }} Pemerintah Daerah Kabupaten Cirebon. Hak Cipta Dilindungi.</span>
-      <div class="footer-links">
-        <span>Kebijakan Privasi</span>
-        <span aria-hidden="true">·</span>
-        <span>Standar Keamanan Informasi</span>
-        <span aria-hidden="true">·</span>
-        <span>Bantuan Helpdesk</span>
+          <div class="form-links">
+            <a href="#" @click.prevent>Lupa kata sandi akun?</a>
+            <p>Butuh bantuan akses? Silakan hubungi <a href="#" @click.prevent>Bapperida Kab. Cirebon.</a></p>
+          </div>
+        </section>
+
+        <div class="login-illustration" aria-hidden="true">
+          <svg viewBox="0 0 620 440" role="presentation">
+            <defs>
+              <linearGradient id="illustrationCard" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffffff" />
+                <stop offset="1" stop-color="#f5f9ff" />
+              </linearGradient>
+              <linearGradient id="blueBar" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#66a5ff" />
+                <stop offset="1" stop-color="#2364ef" />
+              </linearGradient>
+              <filter id="illustrationShadow" x="-20%" y="-20%" width="140%" height="150%">
+                <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#a5c5ee" flood-opacity="0.24" />
+              </filter>
+            </defs>
+            <circle cx="320" cy="228" r="154" fill="#f5f9ff" />
+            <circle cx="520" cy="61" r="9" fill="#b9d8ff" />
+            <circle cx="565" cy="128" r="13" fill="#b9d8ff" />
+            <ellipse cx="316" cy="411" rx="208" ry="9" fill="#e8f1ff" />
+
+            <g transform="translate(178 20)">
+              <ellipse cx="39" cy="34" rx="38" ry="21" fill="#e9f1fb" />
+              <path d="M4 27c0-12 18-22 39-22s35 7 35 19-17 25-39 25S4 40 4 27Z" fill="#72adff" />
+              <path d="M4 22c6 9 23 12 42 7 13-4 24-10 31-17v14c-9 13-27 22-42 23C18 51 5 42 4 32Z" fill="#3982fa" />
+              <path d="M9 26c10 8 30 8 48 0" fill="none" stroke="#d9eaff" stroke-width="2" />
+            </g>
+
+            <g filter="url(#illustrationShadow)">
+              <rect x="88" y="142" width="392" height="224" rx="15" fill="url(#illustrationCard)" stroke="#cedcf0" stroke-width="2" />
+              <path d="M128 143v222" stroke="#e0e9f5" stroke-width="2" />
+              <g fill="#acd0ff">
+                <circle cx="107" cy="164" r="7" /><circle cx="107" cy="187" r="7" />
+                <circle cx="107" cy="210" r="7" /><circle cx="107" cy="233" r="7" />
+                <circle cx="107" cy="256" r="7" />
+              </g>
+              <rect x="145" y="161" width="78" height="8" rx="4" fill="#82baff" />
+              <rect x="145" y="175" width="108" height="7" rx="3.5" fill="#e2eaf4" />
+              <g fill="#4185fa">
+                <rect x="428" y="157" width="8" height="8" rx="2" /><rect x="428" y="171" width="8" height="8" rx="2" /><rect x="428" y="185" width="8" height="8" rx="2" />
+              </g>
+              <g fill="#dfe8f4">
+                <rect x="441" y="157" width="23" height="8" rx="2" /><rect x="441" y="171" width="23" height="8" rx="2" /><rect x="441" y="185" width="23" height="8" rx="2" />
+              </g>
+              <g fill="#b6d6ff">
+                <circle cx="149" cy="204" r="5" /><circle cx="165" cy="204" r="5" /><circle cx="181" cy="204" r="5" />
+              </g>
+              <rect x="145" y="230" width="116" height="13" rx="6" fill="#deebff" />
+              <rect x="145" y="230" width="91" height="13" rx="6" fill="#579bff" />
+              <rect x="145" y="251" width="89" height="12" rx="6" fill="#e4efff" />
+              <rect x="145" y="251" width="55" height="12" rx="6" fill="#8bc2ff" />
+              <rect x="145" y="271" width="105" height="13" rx="6" fill="#deebff" />
+              <rect x="145" y="271" width="81" height="13" rx="6" fill="url(#blueBar)" />
+              <rect x="145" y="318" width="143" height="23" rx="6" fill="#f5f9ff" stroke="#d9e6f6" />
+              <circle cx="157" cy="329" r="4" fill="#70acff" />
+              <rect x="168" y="325" width="58" height="7" rx="3.5" fill="#c4dcff" />
+
+              <circle cx="361" cy="228" r="53" fill="none" stroke="#bfdbff" stroke-width="27" />
+              <path d="M324 190a53 53 0 0 1 74 0" fill="none" stroke="#5598fa" stroke-width="27" />
+              <path d="M398 190a53 53 0 0 1 16 39" fill="none" stroke="#a8ccff" stroke-width="27" />
+              <circle cx="361" cy="228" r="27" fill="#fff" />
+              <rect x="387" y="297" width="88" height="24" rx="6" fill="#fff" stroke="#dbe7f6" />
+              <circle cx="400" cy="309" r="4" fill="#67a7ff" />
+              <rect x="410" y="305" width="51" height="7" rx="3.5" fill="#c7defe" />
+            </g>
+
+            <g transform="translate(25 255)">
+              <path d="M28 12c0-8 6-14 14-14s14 6 14 14v7H28Z" fill="#17253a" />
+              <circle cx="42" cy="14" r="11" fill="#f3cb56" />
+              <path d="M31 10c4 5 14 6 22 0l-1-6H32Z" fill="#17253a" />
+              <path d="m32 27-12 17-12 30 8 3 16-24 4 49h22l-2-49 13 24 8-4-11-31-12-15Z" fill="#2464ee" />
+              <path d="m31 28-9 17 11 5 5-21m13 0 9 17-11 5-5-21" fill="#5599ff" />
+              <path d="m35 102-3 55h12l3-48 4 48h12l-4-55Z" fill="#164ecb" />
+              <path d="M32 157h13c2 0 5 3 6 5-5 4-16 4-23 1-2-2 1-6 4-6Zm19 0h12c3 0 6 3 7 6-6 4-17 3-23 0-1-2 1-6 4-6Z" fill="#17253a" />
+              <g transform="translate(8 73) rotate(-3)">
+                <rect width="120" height="71" rx="6" fill="#fff" stroke="#d3deed" stroke-width="2" />
+                <circle cx="12" cy="12" r="3" fill="#6caaff" /><rect x="21" y="9" width="39" height="6" rx="3" fill="#e5edf7" />
+                <rect x="16" y="42" width="9" height="19" rx="2" fill="#b8d8ff" />
+                <rect x="36" y="32" width="9" height="29" rx="2" fill="#64a5ff" />
+                <rect x="56" y="25" width="9" height="36" rx="2" fill="#2464ee" />
+                <rect x="76" y="35" width="9" height="26" rx="2" fill="#93c2ff" />
+                <rect x="96" y="29" width="9" height="32" rx="2" fill="#357cf4" />
+              </g>
+            </g>
+
+            <g transform="translate(478 260)">
+              <circle cx="24" cy="13" r="11" fill="#f3cb56" />
+              <path d="M13 12c1-13 22-16 24-2l-3 7c-5-6-14-6-21-1Z" fill="#17253a" />
+              <path d="m15 27-13 17-2 32 9 1 9-24 3 49h22l2-49 11 24 8-3-9-32-15-15Z" fill="#2464ee" />
+              <path d="m17 29-10 17 11 5 6-22m12 0 10 17-11 5-5-22" fill="#63a3ff" />
+              <path d="m19 102-2 55h12l3-48 4 48h12l-4-55Z" fill="#164ecb" />
+              <path d="M17 157h13c3 0 6 3 6 5-5 4-17 4-23 1-1-2 1-6 4-6Zm21 0h12c3 0 6 3 7 6-6 4-17 3-23 0-1-2 1-6 4-6Z" fill="#17253a" />
+              <rect x="-57" y="67" width="83" height="40" rx="6" fill="#fff" stroke="#d8e4f3" stroke-width="2" />
+              <rect x="-49" y="75" width="51" height="6" rx="3" fill="#7cb5ff" />
+              <rect x="-49" y="87" width="35" height="6" rx="3" fill="#e1ebf7" />
+            </g>
+
+            <g transform="translate(365 390)">
+              <ellipse cx="42" cy="23" rx="36" ry="11" fill="#3859a4" />
+              <path d="M18 15V-6l13-7v28Z" fill="#4c95fa" />
+              <path d="M31 15V-19l13-6v42Z" fill="#8fc2ff" />
+              <path d="M44 15V-4l13-7v26Z" fill="#3478ed" />
+              <path d="m31-19 13-6v8l-13 7Z" fill="#bfddff" />
+              <path d="m18-6 13-7v8l-13 7Z" fill="#b5d8ff" />
+            </g>
+          </svg>
+        </div>
       </div>
-    </footer>
+
+      <footer class="login-footer">
+        <span><i aria-hidden="true"></i> Pemerintah Kabupaten Cirebon © {{ year }}</span>
+        <nav aria-label="Tautan informasi">
+          <a href="#" @click.prevent>Panduan Pengguna</a>
+          <span aria-hidden="true">·</span>
+          <a href="#" @click.prevent>Kebijakan Privasi</a>
+        </nav>
+      </footer>
+    </section>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { CalendarDays, ChevronDown, CircleHelp, LockKeyhole, ShieldCheck, UserRound } from '@lucide/vue';
-import KabCirebonLogo from '../components/common/KabCirebonLogo.vue';
 import { useAppStore } from '../stores/appStore';
+import { isPreviewDemo, previewUsers } from '../lib/preview-demo';
 
 const router = useRouter();
 const store = useAppStore();
@@ -158,7 +236,26 @@ const selectedYear = computed({
   get: () => store.selectedTahun,
   set: (value: string) => store.setSelectedTahun(value)
 });
+const loginAvailableYears = computed(() => {
+  const currentYear = year.value;
+  const years = Array.from({ length: 5 }, (_, index) => String(currentYear + index - 2));
+  if (!years.includes(selectedYear.value)) years[2] = selectedYear.value;
+  return years.sort((first, second) => Number(first) - Number(second));
+});
 const sessionExpired = computed(() => router.currentRoute.value.query.expired === '1');
+const isDemoMode = isPreviewDemo;
+
+function loginDemo(userId: string) {
+  const user = previewUsers.find(candidate => candidate.id === userId);
+  if (!isDemoMode || !user) return;
+  localStorage.setItem('sipanda_token', 'sipanda-preview-demo');
+  localStorage.setItem('sipanda_user', JSON.stringify(user));
+  store.currentUser = user;
+  store.availableUsers = previewUsers;
+  store.isAuthenticated = true;
+  store.loadPreferences(user.id);
+  router.replace('/');
+}
 
 onMounted(async () => {
   if (!store.isAuthenticated) return;
@@ -1095,5 +1192,465 @@ const handleLogin = async () => {
   .footer-links {
     display: none;
   }
+}
+
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  place-items: center;
+  padding: 0;
+  color: #111827;
+  background: #edf3fb;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+.login-page::before {
+  display: none;
+}
+
+.login-card {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: 0 22px 48px rgba(64, 100, 154, 0.08);
+}
+
+.login-header {
+  display: flex;
+  min-height: clamp(55px, 8.54vw, 82px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: clamp(13px, 2.08vw, 20px) clamp(32px, 5vw, 48px) clamp(8px, 1.25vw, 12px);
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.25vw, 12px);
+}
+
+.brand-logo {
+  display: block;
+  width: clamp(44px, 6.875vw, 66px);
+  height: clamp(25px, 3.85vw, 37px);
+  object-fit: contain;
+}
+
+.brand-divider {
+  width: 1px;
+  height: clamp(19px, 2.92vw, 28px);
+  background: #e6edf6;
+}
+
+.agency-name {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.3125vw, 3px);
+}
+
+.agency-name strong {
+  color: #123f99;
+  font-size: clamp(6px, 0.833vw, 8px);
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.agency-name span {
+  color: #8090a8;
+  font-size: clamp(6px, 0.833vw, 8px);
+}
+
+.system-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(5px, 0.73vw, 7px);
+  padding: clamp(3px, 0.52vw, 5px) clamp(7px, 1.04vw, 10px);
+  border: 1px solid #deebff;
+  border-radius: 99px;
+  color: #2364d8;
+  background: #f5f9ff;
+  font-size: clamp(6px, 0.833vw, 8px);
+  white-space: nowrap;
+}
+
+.system-pill > span {
+  width: clamp(4px, 0.625vw, 6px);
+  height: clamp(4px, 0.625vw, 6px);
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.login-main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(clamp(170px, 26.56vw, 255px), 0.82fr) minmax(0, 1.5fr);
+  align-items: center;
+  gap: clamp(7px, 1.04vw, 10px);
+  padding: clamp(3px, 0.42vw, 4px) clamp(32px, 5vw, 48px) clamp(8px, 1.25vw, 12px);
+}
+
+.form-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  width: 90%;
+  margin: 0;
+  padding: 0;
+}
+
+.form-heading {
+  margin: 0 0 clamp(16px, 2.5vw, 24px);
+}
+
+.form-heading h1 {
+  margin: 0;
+  color: #111827;
+  font-size: clamp(18px, 2.8125vw, 27px);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+
+.form-heading p {
+  margin: clamp(5px, 0.73vw, 7px) 0 0;
+  color: #8496b3;
+  font-size: clamp(7px, 1.04vw, 10px);
+  line-height: 1.5;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(11px, 1.77vw, 17px);
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5px, 0.73vw, 7px);
+  color: #14233c;
+  font-size: clamp(6px, 0.9375vw, 9px);
+  font-weight: 650;
+}
+
+.field-group > input,
+.password-field {
+  width: 100%;
+  min-width: 0;
+  height: clamp(20px, 3.02vw, 29px);
+  padding: 0 clamp(6px, 0.9375vw, 9px);
+  border: 0;
+  border-bottom: 1px solid #8495b1;
+  border-radius: 0;
+  outline: 0;
+  color: #1f2937;
+  background: transparent;
+  font: inherit;
+  font-size: clamp(7px, 1.04vw, 10px);
+  font-weight: 400;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.field-group > input:focus,
+.password-field:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 1px #2563eb;
+}
+
+.field-group > input::placeholder,
+.password-field input::placeholder {
+  color: #8b9bb4;
+  opacity: 1;
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-field input {
+  width: 100%;
+  height: 100%;
+  padding: 0 clamp(19px, 2.92vw, 28px) 0 0;
+  border: 0;
+  outline: 0;
+  color: #1f2937;
+  background: transparent;
+  font: inherit;
+  font-size: clamp(7px, 1.04vw, 10px);
+  font-weight: 400;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0;
+  display: grid;
+  width: clamp(16px, 2.5vw, 24px);
+  height: clamp(18px, 2.7vw, 26px);
+  place-items: center;
+  border: 0;
+  color: #8090a8;
+  background: transparent;
+  cursor: pointer;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: #2563eb;
+}
+
+.password-toggle svg {
+  width: clamp(9px, 1.35vw, 13px);
+  height: clamp(9px, 1.35vw, 13px);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.login-alert {
+  margin: -7px 0 -5px;
+  color: #b42318;
+  font-size: clamp(7px, 1.04vw, 10px);
+  line-height: 1.45;
+}
+
+.session-alert {
+  padding: clamp(5px, 0.83vw, 8px) clamp(7px, 1.04vw, 10px);
+  border-radius: clamp(5px, 0.73vw, 7px);
+  background: #fff1f0;
+}
+
+.submit-button {
+  display: flex;
+  width: clamp(80px, 12.5vw, 120px);
+  min-height: clamp(18px, 2.8125vw, 27px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 0.833vw, 8px);
+  margin-top: 1px;
+  border: 1px solid #1f5eea;
+  border-radius: clamp(5px, 0.73vw, 7px);
+  color: #fff;
+  background: #2864ed;
+  box-shadow: 0 8px 14px rgba(37, 99, 235, 0.2);
+  font: inherit;
+  font-size: clamp(6px, 0.9375vw, 9px);
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #1d4ed8;
+  background: #1d58df;
+}
+
+.submit-button:focus-visible,
+.password-toggle:focus-visible {
+  outline: 2px solid #93b8ff;
+  outline-offset: 3px;
+}
+
+.submit-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.spinner {
+  width: clamp(9px, 1.35vw, 13px);
+  height: clamp(9px, 1.35vw, 13px);
+  border: clamp(1px, 0.21vw, 2px) solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.form-links {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5px, 0.83vw, 8px);
+  margin-top: clamp(18px, 2.8125vw, 27px);
+  color: #8b9bb4;
+  font-size: clamp(6px, 0.833vw, 8px);
+}
+
+.form-links p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.form-links a,
+.login-footer a {
+  color: #8295b3;
+  text-decoration: none;
+}
+
+.form-links a:hover,
+.login-footer a:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.form-links p a {
+  color: #2563eb;
+}
+
+.login-illustration {
+  display: grid;
+  min-width: 0;
+  align-self: start;
+  place-items: center;
+}
+
+.login-illustration svg {
+  display: block;
+  width: 100%;
+  max-width: min(59.4vw, 570px);
+  height: auto;
+  overflow: visible;
+  transform: translateY(-0.73vw) scaleY(1.2);
+  transform-origin: top center;
+}
+
+.login-footer {
+  display: flex;
+  min-height: clamp(28px, 4.375vw, 42px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 clamp(32px, 5vw, 48px);
+  color: #8293ac;
+  font-size: clamp(6px, 0.833vw, 8px);
+}
+
+.login-footer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.login-footer > span i {
+  width: clamp(3px, 0.52vw, 5px);
+  height: clamp(3px, 0.52vw, 5px);
+  border-radius: 50%;
+  background: #c1d2e8;
+}
+
+.login-footer nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.25vw, 12px);
+}
+
+@media (max-width: 520px) {
+  .login-page {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .login-card {
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .login-header {
+    min-height: 48px;
+    padding: 11px 15px 5px;
+  }
+
+  .brand-group {
+    gap: 6px;
+  }
+
+  .brand-logo {
+    width: 38px;
+    height: 22px;
+  }
+
+  .login-main {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    padding: 18px 18px 5px;
+  }
+
+  .form-panel {
+    width: min(100%, 390px);
+    justify-self: center;
+  }
+
+  .form-heading {
+    margin-bottom: 13px;
+  }
+
+  .login-illustration {
+    width: min(100%, 320px);
+    justify-self: center;
+  }
+
+  .login-footer {
+    min-height: 36px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 7px 11px;
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .login-header {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+
+  .login-main {
+    padding-right: 15px;
+    padding-left: 15px;
+  }
+
+  .login-footer nav {
+    gap: 5px;
+  }
+}
+
+:global(html.dark) .login-page .field-group > input,
+:global(html.dark) .login-page .password-field input,
+.login-page .field-group > input,
+.login-page .password-field input {
+  border: 0 !important;
+  border-bottom: 1px solid #8495b1 !important;
+  color: #1f2937 !important;
+  background-color: #fff !important;
+}
+
+:global(html.dark) .login-page .field-group > input::placeholder,
+:global(html.dark) .login-page .password-field input::placeholder,
+.login-page .field-group > input::placeholder,
+.login-page .password-field input::placeholder {
+  color: #8b9bb4 !important;
+}
+
+:global(html.dark) .login-page .field-group > input:focus,
+:global(html.dark) .login-page .password-field:focus-within,
+.login-page .field-group > input:focus,
+.login-page .password-field:focus-within {
+  border-bottom-color: #2563eb !important;
 }
 </style>

@@ -9,6 +9,7 @@ import {registerEditorImport} from './editor-import.js';
 import {registerDocumentReview,submissionSnapshot} from './document-review.js';
 import { appendSubsection } from './document-subsections.js';
 import { normalizeSubsectionOrientation } from '../shared/editor-orientation.js';
+import { buildUserProfile } from './user-profile.js';
 import { importDocxSections } from './document-import.js';
 import { sourceDocx, pdfBodyStart } from './annex-source.js';
 import { registerExportRoutes } from './document-export.js';
@@ -19,6 +20,9 @@ import { registerTableRoutes } from './document-tables.js';
 import { documentSettings, registerSettingsRoutes } from './document-settings.js';
 import { registerNotificationRoutes } from './notification-routes.js';
 import { registerPlanningComplianceRoute } from './planning-compliance.js';
+import { registerEvaluasiTriwulan } from './evaluasi-triwulan.js';
+import { registerAdminVerificationRoutes } from './admin-verification.js';
+import { finalArchiveListWhere } from './archive-access.js';
 import { canonicalType, instantiate, ensureTemplates, registerTemplateRoutes } from './templates.js';
 import express from 'express';
 import { parseHTML } from 'linkedom';
@@ -87,40 +91,24 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-function buildUserProfile(user) {
-  const roleKodes = user.roles?.map(r => r.role.kode) || [];
-  const primaryRole = roleKodes.includes('super_admin') ? 'admin'
-    : roleKodes.includes('staf_bapperida') ? 'staf'
-    : 'opd';
-  const roleLabel = roleKodes.includes('super_admin') ? 'BAPPERIDA (SUPER ADMIN)'
-    : roleKodes.includes('staf_bapperida') ? 'STAF BAPPERIDA'
-    : 'PERANGKAT DAERAH (OPD)';
-  return {
-    id:       user.id,
-    username: user.username,
-    name:     user.nama,
-    nama:     user.nama,
-    nip:      user.nip,
-    jabatan:  user.jabatan,
-    singkatan:user.singkatan,
-    avatar:   user.avatar,
-    opdId:    user.opdId,
-    opdName:  user.opd?.nama || user.nama,
-    role:     primaryRole,
-    roleLabel,
-    roleKodes,
-    isSuperAdmin: roleKodes.includes('super_admin'),
-  };
-}
-
 const OPD_DOCUMENT_TYPES = ['Renja Murni', 'Renja Perubahan', 'Renstra', 'Renstra Murni', 'Renstra Perubahan'];
 const STAFF_DOCUMENT_TYPES = ['Renja Murni', 'Renja Perubahan'];
-const RKPD_DOCUMENT_TYPES = ['RKPD', 'RKPD Murni', 'RKPD Perubahan'];
+const RKPD_DOCUMENT_TYPES = ['RKPD', 'RKPD Murni', 'RKPD Perubahan', 'Evaluasi RKPD Triwulan'];
 
 const isSuperAdmin = user => user?.roleKodes?.includes('super_admin') === true;
 const isRkpdDocument = jenis => RKPD_DOCUMENT_TYPES.includes(jenis);
+async function writeDocumentStatusLog(tx,record){
+  await tx.$executeRaw`INSERT INTO document_status_logs (id,document_id,dari,ke,oleh,alasan,perubahan,waktu) VALUES (${randomUUID()},${record.documentId},${record.dari},${record.ke},${record.oleh},${record.alasan||null},${record.perubahan?JSON.stringify(record.perubahan):null},NOW(3))`;
+}
+async function setDocumentFinal(tx,doc,userId,now){
+  const snapshot=JSON.stringify({capturedAt:now.toISOString(),document:JSON.parse(JSON.stringify({...doc,status:'Final',finalizedAt:now,finalizedBy:userId}))});
+  await tx.$executeRaw`UPDATE documents SET status='Final',finalized_at=${now},finalized_by=${userId},final_snapshot=${snapshot},updated_at=${now} WHERE id=${doc.id}`;
+  await writeDocumentStatusLog(tx,{documentId:doc.id,dari:doc.status,ke:'Final',oleh:userId});
+}
 registerNotificationRoutes(app, prisma, authMiddleware, isSuperAdmin);
 registerPlanningComplianceRoute(app, prisma, authMiddleware, isSuperAdmin);
+registerEvaluasiTriwulan(app,prisma,authMiddleware,isSuperAdmin);
+registerAdminVerificationRoutes(app, prisma, authMiddleware, isSuperAdmin, writeDocumentStatusLog);
 
 function denyUnlessSuperAdmin(req, res) {
   if (isSuperAdmin(req.currentUser)) return false;
@@ -139,7 +127,7 @@ async function getDocumentPermissions(user, doc) {
   }
   const allBabIds = doc.sections?.map(section => section.babId || section.id) || [];
   if (isSuperAdmin(user)) {
-    const canEdit = doc.createdById === user.id && ['Draft', 'Perlu Revisi'].includes(doc.status);
+    const canEdit = doc.status === 'Disetujui Bapperida' || (doc.createdById === user.id && ['Draft', 'Perlu Revisi'].includes(doc.status));
     return {
       canView: true,
       canEdit,
@@ -173,7 +161,8 @@ async function getDocumentPermissions(user, doc) {
   });
   const isAssignedRkpd = isCollaborativeDocument(doc) && chapterAssignments.length > 0;
   const canEditOwnDocument = doc.createdById === user.id && !isCollaborativeDocument(doc);
-  const editableBabIds = isAssignedRkpd
+  const canCorrect = !isRkpdDocument(doc.jenis) && Boolean(verificationAssignment) && doc.status === 'Disetujui Bapperida';
+  const editableBabIds = canCorrect ? allBabIds : isAssignedRkpd
     ? chapterAssignments.map(item => item.babId)
     : canEditOwnDocument ? allBabIds : [];
   const canVerify = !isRkpdDocument(doc.jenis) && Boolean(verificationAssignment) && doc.status === 'Menunggu Verifikasi';
@@ -181,7 +170,7 @@ async function getDocumentPermissions(user, doc) {
     canView: isCollaborativeDocument(doc)
       ? isAssignedRkpd
       : Boolean(verificationAssignment) || doc.createdById === user.id,
-    canEdit: editableBabIds.length > 0 && ['Draft', 'Perlu Revisi'].includes(doc.status),
+    canEdit: editableBabIds.length > 0 && ['Draft', 'Perlu Revisi', 'Disetujui Bapperida'].includes(doc.status),
     canVerify,
     editableBabIds
   };
@@ -207,6 +196,8 @@ function sectionsFromDb(sectionRows) {
       title:       s.babTitle,
       locked:      s.isLocked,
       order:       s.babOrder,
+      updatedAt:   s.updatedAt,
+      lastEditedBy: s.updatedBy ? { id: s.updatedBy.id, nama: s.updatedBy.nama } : null,
       subsections: (s.subsections || []).map(sub => {
         const migrated = normalizeSubsectionOrientation(sub, html => parseHTML(`<html><body>${html}</body></html>`).document.body);
         return { ...migrated.subsection, ...(migrated.mixedLegacy ? { legacyOrientationWarning: true } : {}) };
@@ -409,19 +400,30 @@ app.get('/api/staf/penugasan/saya', authMiddleware, async (req, res) => {
 // POST buat staf baru
 app.post('/api/staf', authMiddleware, async (req, res) => {
   if (denyUnlessSuperAdmin(req, res)) return;
-  const { username, password, nama, nip, jabatan } = req.body;
+  const { username, password, nama, nip, jabatan, penyusunRkpd } = req.body;
   if (!username || !password || !nama) {
     return res.status(400).json({ error: 'username, password, dan nama wajib diisi' });
   }
   try {
     const roleStaf = await prisma.role.findUnique({ where: { kode: 'staf_bapperida' } });
+    const rolePenyusun = penyusunRkpd
+      ? await prisma.role.findUnique({ where: { kode: 'penyusun_rkpd' } })
+      : null;
+    if (!roleStaf || (penyusunRkpd && !rolePenyusun)) {
+      return res.status(503).json({ error: 'Role akun belum tersedia. Jalankan migrasi backend terbaru.' });
+    }
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         username, password: hashed, nama, nip, jabatan,
         opdId: 'bapperida',
         singkatan: 'Bapperida',
-        roles: { create: { roleId: roleStaf.id } }
+        roles: {
+          create: [
+            { roleId: roleStaf.id },
+            ...(rolePenyusun ? [{ roleId: rolePenyusun.id }] : [])
+          ]
+        }
       },
       include: { roles: { include: { role: true } }, opd: true }
     });
@@ -569,8 +571,11 @@ app.get('/api/documents', authMiddleware, async (req, res) => {
     const docs = await prisma.document.findMany({
       where,
       include: {
-        sections: { orderBy: { babOrder: 'asc' } },
-        penugasanBab: user?.role === 'staf' ? { where: { userId: user.id }, select: { babId: true } } : false
+        sections: { orderBy: { babOrder: 'asc' }, include: { updatedBy: { select: { id: true, nama: true } } } },
+        versions: { select: { id: true, versi: true, createdAt: true } },
+        penugasanBab: isSuperAdmin(user)
+          ? { include: { user: { select: { id: true, nama: true, avatar: true } } } }
+          : user?.role === 'staf' ? { where: { userId: user.id }, select: { babId: true, userId: true } } : false
       },
       orderBy: { updatedAt: 'desc' }
     });
@@ -592,7 +597,7 @@ app.get('/api/documents/:id', authMiddleware, async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id },
-      include: { sections: { orderBy: { babOrder: 'asc' } }, attachments: true }
+      include: { sections: { orderBy: { babOrder: 'asc' }, include: { updatedBy: { select: { id: true, nama: true } } } }, attachments: true }
     });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
     const permissions = await getDocumentPermissions(req.currentUser, doc);
@@ -875,13 +880,13 @@ app.post('/api/documents/:id/sections/:babId/subsections', authMiddleware, async
     const updatedBab = updatedSections.find(section => section.id === req.params.babId);
 
     await editorSessions.save(req.currentUser,doc.id,req.body.editorSessionId,req.body.editorRevisions,[req.params.babId],async tx=>{
-      await tx.documentSection.update({where:{documentId_babId:{documentId:doc.id,babId:req.params.babId}},data:{subsections:updatedBab.subsections}});
+      await tx.documentSection.update({where:{documentId_babId:{documentId:doc.id,babId:req.params.babId}},data:{subsections:updatedBab.subsections,updatedById:req.currentUser.id}});
       return tx.document.update({where:{id:doc.id},data:{updatedAt:new Date()}});
     });
 
     const updated = await prisma.document.findUnique({
       where: { id: doc.id },
-      include: { sections: { orderBy: { babOrder: 'asc' } } }
+      include: { sections: { orderBy: { babOrder: 'asc' }, include: { updatedBy: { select: { id: true, nama: true } } } } }
     });
     await syncLampiran(updated);
     res.status(201).json({ subsection, editorRevisions:chapterRevisions(updated) });
@@ -905,9 +910,11 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
       include: { sections: true }
     });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
+    if (doc.status === 'Final') return res.status(423).json({ error: 'Dokumen Final terkunci' });
 
     const permissions = await getDocumentPermissions(req.currentUser, doc);
     if (!permissions.canView) return res.status(403).json({ error: 'Dokumen tidak termasuk penugasan Anda' });
+    if (doc.status === 'Disetujui Bapperida') return res.status(403).json({error:'Gunakan jalur koreksi agar perubahan tercatat.'});
     if (!permissions.canEdit) return res.status(403).json({ error: 'Anda hanya dapat melihat dokumen ini' });
 
     const sectionsToUpdate = Array.isArray(sections) ? sections : [];
@@ -957,6 +964,13 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
     // Update sections jika ada
     if (sectionsToUpdate.length > 0) {
       for (const bab of sectionsToUpdate) {
+        const existingSection = doc.sections.find(section => section.babId === bab.id);
+        const isFirstChapter = bab.id === [...doc.sections].sort((a, b) => a.babOrder - b.babOrder)[0]?.babId;
+        const frontMatterChanged = frontMatter != null && isFirstChapter &&
+          JSON.stringify(frontMatter) !== JSON.stringify(doc.frontMatter || {});
+        const chapterChanged = !existingSection || existingSection.babTitle !== bab.title ||
+          JSON.stringify(existingSection.subsections || []) !== JSON.stringify(bab.subsections || []);
+        if (!chapterChanged && !frontMatterChanged) continue;
         await tx.documentSection.upsert({
           where: { documentId_babId: { documentId: doc.id, babId: bab.id } },
           create: {
@@ -964,9 +978,14 @@ app.put('/api/documents/:id', authMiddleware, async (req, res) => {
             babId: bab.id, babTitle: bab.title,
             babOrder: bab.order || 0,
             isLocked: bab.locked ?? true,
-            subsections: bab.subsections || []
+            subsections: bab.subsections || [],
+            updatedById: req.currentUser.id
           },
-          update: { subsections: bab.subsections || [], babTitle: bab.title }
+          update: {
+            subsections: bab.subsections || [],
+            babTitle: bab.title,
+            updatedById: req.currentUser.id
+          }
         });
       }
     }
@@ -997,6 +1016,7 @@ app.post('/api/documents/:id/submit', authMiddleware, async (req, res) => {
       include: { sections: { orderBy: { babOrder: 'asc' } } }
     });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
+    if (doc.status === 'Final') return res.status(423).json({ error: 'Dokumen Final terkunci' });
     if (req.currentUser.role !== 'opd' || req.currentUser.opdId !== doc.opdId || !OPD_DOCUMENT_TYPES.includes(doc.jenis)) {
       return res.status(403).json({ error: 'Hanya OPD pemilik Renja/Renstra yang dapat mengajukan dokumen' });
     }
@@ -1138,6 +1158,7 @@ app.put('/api/annexes/:id/config', authMiddleware, async (req, res) => {
     if (!doc?.isLampiranOtomatis || !ANNEX_DOCUMENT_TYPES.includes(doc.jenis)) {
       return res.status(404).json({ error: 'Lampiran tidak ditemukan' });
     }
+    if (doc.status === 'Final' || (doc.parentId && (await prisma.document.findUnique({where:{id:doc.parentId},select:{status:true}}))?.status === 'Final')) return res.status(423).json({error:'Lampiran dokumen Final terkunci'});
     const values = {
       nomorPeraturan: String(req.body.nomorPeraturan ?? '').trim().slice(0, 100),
       tahunPenetapan: String(req.body.tahunPenetapan ?? '').trim(),
@@ -1168,6 +1189,7 @@ app.post('/api/annexes/:id/rebuild', authMiddleware, async (req, res) => {
     }
     const parent = await prisma.document.findUnique({ where: { id: annex.parentId || '' } });
     if (!parent) return res.status(404).json({ error: 'Dokumen induk lampiran tidak ditemukan' });
+    if (parent.status === 'Final' || annex.status === 'Final') return res.status(423).json({ error: 'Lampiran dokumen Final terkunci' });
     const rebuilt = await syncLampiran(parent, true);
     const result = await prisma.document.findUnique({
       where: { id: rebuilt.id },
@@ -1212,6 +1234,7 @@ app.put('/api/documents/:id/file', authMiddleware, upload.single('file'), async 
       await discardUpload();
       return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
     }
+    if (doc.status === 'Final') { await discardUpload(); return res.status(423).json({ error: 'Dokumen Final terkunci' }); }
     if (req.currentUser.role !== 'opd' || req.currentUser.opdId !== doc.opdId || doc.cara !== 'upload') {
       await discardUpload();
       return res.status(403).json({ error: 'Hanya OPD pemilik dokumen upload yang dapat mengunggah perbaikan' });
@@ -1322,9 +1345,11 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
     return res.status(403).json({ error: 'Hanya Admin/Staf Bapperida yang berhak memverifikasi' });
   }
 
-  const { status, catatanRevisi } = req.body;
-  if (!['Disetujui', 'Perlu Revisi'].includes(status)) {
-    return res.status(400).json({ error: 'Status harus "Disetujui" atau "Perlu Revisi"' });
+  const requestedStatus = req.body.status;
+  const status = requestedStatus === 'Disetujui' ? 'Disetujui Bapperida' : requestedStatus;
+  const { catatanRevisi } = req.body;
+  if (!['Disetujui Bapperida', 'Perlu Revisi'].includes(status)) {
+    return res.status(400).json({ error: 'Status harus "Disetujui Bapperida" atau "Perlu Revisi"' });
   }
   if (status === 'Perlu Revisi' && !catatanRevisi?.trim()) {
     return res.status(400).json({ error: 'Catatan revisi wajib diisi' });
@@ -1332,6 +1357,7 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
 
   try {
     const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
+    if (doc?.status === 'Final') return res.status(423).json({ error: 'Dokumen Final terkunci' });
     if (!doc) return res.status(404).json({ error: 'Dokumen tidak ditemukan' });
     if (doc.isLampiranOtomatis) return res.status(400).json({ error: 'Lampiran otomatis mengikuti proses verifikasi dokumen induk.' });
     if (doc.createdById === user.id) {
@@ -1349,7 +1375,7 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
       }
     }
 
-    const tteNumber = status === 'Disetujui'
+    const tteNumber = status === 'Disetujui Bapperida'
       ? (doc.tteNumber || `050/BA-${doc.opdId.toUpperCase()}/${doc.tahun}`)
       : null;
 
@@ -1366,6 +1392,19 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
       },
       include: { sections: { orderBy: { babOrder: 'asc' } } }
     });
+    await writeDocumentStatusLog(tx,{documentId:doc.id,dari:doc.status,ke:status,oleh:user.id,alasan:catatanRevisi||null});
+    if(status==='Disetujui Bapperida') {
+      await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen Disetujui Bapperida',message:`${doc.judul} disetujui Bapperida dan masih dapat dikoreksi.`}});
+      const pendingFinalCount = await tx.document.count({ where: { status: 'Disetujui Bapperida', parentId: null, isLampiranOtomatis: false } });
+      await tx.notification.create({
+        data: {
+          opdId: 'bapperida',
+          senderId: user.id,
+          title: 'Dokumen Menunggu Verifikasi Final',
+          message: `${doc.judul} (${doc.opdName}) disetujui Verifikasi 1 oleh ${user.name}. ${pendingFinalCount + 1} dokumen menunggu Verifikasi Final.`
+        }
+      });
+    }
     if(status==='Perlu Revisi')await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen dikembalikan untuk revisi',message:`${doc.judul}: ${catatanRevisi}. Periksa komentar Terbuka di editor.`}});
     await syncLampiranInTransaction(tx,result);
     await tx.verification.create({
@@ -1373,20 +1412,21 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
         documentId: doc.id,
         verifierId: user.id,
         status, catatanRevisi: catatanRevisi || null,
-        tteNumber
+        tteNumber,
+        verifikasiTahap: 1
       }
     });
     await tx.activityLog.create({
       data: {
         documentId: doc.id,
         docTitle: doc.judul,
-        detail: status === 'Disetujui'
-          ? `Disetujui oleh ${user.name} (BA Sah & TTE Terbit)`
+        detail: status === 'Disetujui Bapperida'
+          ? `Disetujui Bapperida oleh ${user.name}`
           : `Catatan revisi dikirim oleh ${user.name}: "${catatanRevisi?.substring(0, 60)}..."`,
         tag: doc.opdName,
-        badge: status === 'Disetujui' ? 'Sah / TTE' : 'Perlu Revisi',
-        icon: status === 'Disetujui' ? 'check-circle' : 'alert-circle',
-        color: status === 'Disetujui' ? 'green' : 'red'
+        badge: status === 'Disetujui Bapperida' ? 'Disetujui Bapperida' : 'Perlu Revisi',
+        icon: status === 'Disetujui Bapperida' ? 'check-circle' : 'alert-circle',
+        color: status === 'Disetujui Bapperida' ? 'green' : 'red'
       }
     });
     return result;
@@ -1400,6 +1440,138 @@ app.post('/api/documents/:id/verify', authMiddleware, async (req, res) => {
 });
 
 // ─── STATISTICS ──────────────────────────────────────────────────────────────
+
+ async function finalizeLockedDocument(tx,id,user,now){
+ await tx.$queryRaw`SELECT id FROM documents WHERE id=${id} FOR UPDATE`;
+ const doc=await tx.document.findUnique({where:{id},include:{sections:{orderBy:{babOrder:'asc'}},attachments:true}});
+ if(!doc||doc.status!=='Disetujui Bapperida')throw Object.assign(new Error('Semua dokumen harus berstatus Disetujui Bapperida'),{status:409});
+ await setDocumentFinal(tx,doc,user.id,now);
+ const annexes=await tx.document.findMany({where:{parentId:id,isLampiranOtomatis:true},include:{sections:true,attachments:true}});
+ for(const annex of annexes){if(annex.status==='Final')continue;await setDocumentFinal(tx,annex,user.id,now);}
+ await tx.verification.create({
+   data: {
+     documentId: doc.id,
+     verifierId: user.id,
+     status: 'Final',
+     tteNumber: doc.tteNumber,
+     verifikasiTahap: 2
+   }
+ });
+ await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen Final',message:`${doc.judul} telah difinalkan dan tersedia di Arsip OPD.`}});
+ const assignment = await tx.penugasanVerifikasi.findFirst({ where: { opdId: doc.opdId, tahun: doc.tahun } });
+ if (assignment) {
+   await tx.notification.create({
+     data: {
+       opdId: 'bapperida',
+       senderId: user.id,
+       title: 'Verifikasi Final Selesai',
+       message: `${doc.judul} (${doc.opdName}) telah disetujui Final oleh Super Admin.`
+     }
+   });
+ }
+ return {...doc,status:'Final'};
+}
+app.post('/api/documents/:id/finalize',authMiddleware,async(req,res)=>{
+ if(!isSuperAdmin(req.currentUser))return res.status(403).json({error:'Hanya Super Admin PPEPD yang dapat memfinalkan dokumen'});
+ try{const doc=await prisma.document.findUnique({where:{id:req.params.id}});if(!doc)return res.status(404).json({error:'Dokumen tidak ditemukan'});const result=await prisma.$transaction(tx=>finalizeLockedDocument(tx,doc.id,req.currentUser,new Date()));res.json({success:true,document:result});}catch(e){if(e.status)return res.status(e.status).json({error:e.message});console.error(e);res.status(500).json({error:'Gagal memfinalkan dokumen'});}
+});
+app.post('/api/documents/finalize-bulk',authMiddleware,async(req,res)=>{
+ if(!isSuperAdmin(req.currentUser))return res.status(403).json({error:'Hanya Super Admin PPEPD'});
+ const ids=Array.isArray(req.body.ids)?[...new Set(req.body.ids.filter(id=>typeof id==='string'))]:[];if(!ids.length||ids.length>100)return res.status(400).json({error:'Pilih 1 sampai 100 dokumen'});
+ const docs=await prisma.document.findMany({where:{id:{in:ids},status:'Disetujui Bapperida'},select:{id:true}});if(docs.length!==ids.length)return res.status(409).json({error:'Semua dokumen harus Disetujui Bapperida'});
+ const finalized=[];try{for(const id of ids){await prisma.$transaction(tx=>finalizeLockedDocument(tx,id,req.currentUser,new Date()));finalized.push(id);}res.json({success:true,finalized});}catch(e){res.status(e.status||500).json({error:e.message||'Finalisasi beberapa dokumen gagal',finalized});}
+});
+app.post('/api/documents/:id/unlock',authMiddleware,async(req,res)=>{
+ if(!isSuperAdmin(req.currentUser))return res.status(403).json({error:'Hanya Super Admin'});const alasan=String(req.body.alasan||'').trim();if(!alasan)return res.status(400).json({error:'Alasan wajib diisi'});const doc=await prisma.document.findUnique({where:{id:req.params.id}});if(!doc)return res.status(404).json({error:'Dokumen tidak ditemukan'});if(doc.status!=='Final')return res.status(409).json({error:'Dokumen tidak berstatus Final'});await prisma.$transaction(async tx=>{await tx.$executeRaw`UPDATE documents SET status='Disetujui Bapperida',updated_at=NOW(3) WHERE id=${doc.id}`;await writeDocumentStatusLog(tx,{documentId:doc.id,dari:'Final',ke:'Disetujui Bapperida',oleh:req.currentUser.id,alasan});});res.json({success:true});
+});
+app.post('/api/documents/:id/return-to-opd',authMiddleware,async(req,res)=>{
+ const user=req.currentUser;if(user.role!=='staf'&&!isSuperAdmin(user))return res.status(403).json({error:'Hanya Bapperida yang dapat mengembalikan dokumen'});
+ const catatan=String(req.body.catatanRevisi||'').trim();if(!catatan)return res.status(400).json({error:'Catatan pengembalian wajib diisi'});
+ const doc=await prisma.document.findUnique({where:{id:req.params.id}});if(!doc)return res.status(404).json({error:'Dokumen tidak ditemukan'});if(doc.status!=='Disetujui Bapperida')return res.status(409).json({error:'Hanya dokumen Disetujui Bapperida yang dapat dikembalikan'});
+ if(!isSuperAdmin(user)){const assignment=await prisma.penugasanVerifikasi.findUnique({where:{userId_opdId_tahun:{userId:user.id,opdId:doc.opdId,tahun:doc.tahun}}});if(!assignment)return res.status(403).json({error:'Dokumen ini tidak termasuk penugasan Anda'});}
+ await prisma.$transaction(async tx=>{await tx.document.update({where:{id:doc.id},data:{status:'Perlu Revisi',catatanRevisi:catatan,verifierName:user.name,verifierJabatan:user.jabatan,updatedAt:new Date()}});await writeDocumentStatusLog(tx,{documentId:doc.id,dari:doc.status,ke:'Perlu Revisi',oleh:user.id,alasan:catatan});await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen dikembalikan untuk revisi',message:`${doc.judul}: ${catatan}`}});});res.json({success:true});
+});
+app.post('/api/documents/:id/correction',authMiddleware,async(req,res)=>{
+ const user=req.currentUser;if(user.role!=='staf'&&!isSuperAdmin(user))return res.status(403).json({error:'Hanya Bapperida yang dapat mengoreksi'});
+ const doc=await prisma.document.findUnique({where:{id:req.params.id},include:{sections:true}});if(!doc)return res.status(404).json({error:'Dokumen tidak ditemukan'});if(doc.status==='Final')return res.status(423).json({error:'Dokumen Final terkunci'});if(doc.status!=='Disetujui Bapperida')return res.status(409).json({error:'Dokumen harus Disetujui Bapperida'});
+ if(!isSuperAdmin(user)){const a=await prisma.penugasanVerifikasi.findUnique({where:{userId_opdId_tahun:{userId:user.id,opdId:doc.opdId,tahun:doc.tahun}}});if(!a)return res.status(403).json({error:'Dokumen ini tidak termasuk penugasan Anda'});}
+ const sections=Array.isArray(req.body.sections)?req.body.sections:[];const changes=[];for(const section of sections){const old=doc.sections.find(x=>x.babId===section.id);if(!old||!Array.isArray(section.subsections)||section.subsections.length!==old.subsections.length||section.subsections.some((sub,i)=>sub.id!==old.subsections[i].id||typeof sub.content!=='string'))return res.status(400).json({error:'Struktur bab/sub-bab tidak valid'});changes.push({babId:old.babId,before:old.subsections,after:section.subsections});}
+ if(!changes.length)return res.status(400).json({error:'Perubahan dokumen kosong'});
+ await prisma.$transaction(async tx=>{for(const section of sections){const clean=section.subsections.map(sub=>({...sub,content:cleanHtml(sub.content,false)}));await tx.documentSection.update({where:{documentId_babId:{documentId:doc.id,babId:section.id}},data:{subsections:clean}});}await tx.document.update({where:{id:doc.id},data:{verifierName:user.name,verifierJabatan:user.jabatan,updatedAt:new Date()}});await writeDocumentStatusLog(tx,{documentId:doc.id,dari:doc.status,ke:doc.status,oleh:user.id,alasan:req.body.catatan||null,perubahan:changes});await tx.notification.create({data:{opdId:doc.opdId,senderId:user.id,title:'Dokumen dikoreksi Bapperida',message:`${doc.judul} telah dikoreksi oleh Bapperida.`}});});const updated=await prisma.document.findUnique({where:{id:doc.id},include:{sections:{orderBy:{babOrder:'asc'}}}});res.json({success:true,document:{...updated,sections:sectionsFromDb(updated.sections),permissions:await getDocumentPermissions(user,updated)}});
+});
+
+app.get('/api/archives',authMiddleware,async(req,res)=>{
+ const user=req.currentUser;
+ if(!['admin','staf','opd'].includes(user.role))return res.status(403).json({error:'Akses Arsip ditolak'});
+ if(user.role==='admin'&&!isSuperAdmin(user))return res.status(403).json({error:'Akses Arsip ditolak'});
+ try{
+  const where=await finalArchiveListWhere(user,prisma,isSuperAdmin);
+  const documents=await prisma.document.findMany({
+   where,
+   include:{opd:{select:{nama:true,singkatan:true}},sections:false,versions:{select:{id:true}}},
+   orderBy:[{tahun:'desc'},{updatedAt:'desc'}]
+  });
+  const rootIds=documents.map(doc=>doc.id);
+  const annexes=rootIds.length?await prisma.document.findMany({
+   where:{parentId:{in:rootIds},isLampiranOtomatis:true,status:'Final'},
+   include:{opd:{select:{nama:true,singkatan:true}},versions:{select:{id:true}}},
+   orderBy:[{tahun:'desc'},{jenis:'asc'}]
+  }):[];
+  const records=[...documents,...annexes].filter(doc=>doc.status==='Final');
+  const finalizerIds=[...new Set(records.map(doc=>doc.finalizedBy).filter(Boolean))];
+  const finalizers=finalizerIds.length?await prisma.user.findMany({where:{id:{in:finalizerIds}},select:{id:true,nama:true}}):[];
+  const finalizerNames=new Map(finalizers.map(person=>[person.id,person.nama]));
+  res.json(records.map(doc=>{
+   const {finalSnapshot,sections,...safeDoc}=doc;
+   return {
+    ...safeDoc,
+    opdName:doc.opd?.nama||doc.opdName,
+    opdSingkatan:doc.opd?.singkatan||null,
+    finalizedByName:finalizerNames.get(doc.finalizedBy)||null
+   };
+  }));
+ }catch(error){
+  console.error('Failed to list final archive:',error);
+  res.status(500).json({error:'Gagal memuat Arsip Dokumen'});
+ }
+});
+
+app.get('/api/archives/:id/history',authMiddleware,async(req,res)=>{
+ const doc=await prisma.document.findUnique({where:{id:req.params.id}});
+ if(!doc||doc.status!=='Final')return res.status(404).json({error:'Arsip Final tidak ditemukan'});
+ const user=req.currentUser;
+ if(doc.isLampiranOtomatis&&doc.parentId){
+  const parent=await prisma.document.findUnique({where:{id:doc.parentId}});
+  if(!parent||parent.status!=='Final')return res.status(404).json({error:'Arsip Final tidak ditemukan'});
+ }
+ if(!isSuperAdmin(user)){
+  if(user.role==='opd'&&(doc.opdId!==user.opdId||(!doc.isLampiranOtomatis&&!OPD_DOCUMENT_TYPES.includes(doc.jenis))))return res.status(404).json({error:'Arsip Final tidak ditemukan'});
+  if(user.role==='staf'){
+   if(doc.opdId!=='bapperida'){
+    const assignment=await prisma.penugasanVerifikasi.findUnique({where:{userId_opdId_tahun:{userId:user.id,opdId:doc.opdId,tahun:doc.tahun}}});
+    const chapterAssignment=await prisma.penugasanBabRkpd.findFirst({where:{userId:user.id,documentId:doc.id}});
+    if(!assignment&&!chapterAssignment)return res.status(404).json({error:'Arsip Final tidak ditemukan'});
+   }
+  }else if(user.role!=='opd')return res.status(403).json({error:'Akses riwayat Arsip ditolak'});
+ }
+ try{
+  const logs=await prisma.documentStatusLog.findMany({where:{documentId:doc.id},orderBy:{waktu:'asc'}});
+  const userIds=[...new Set(logs.map(log=>log.oleh).filter(Boolean))];
+  const actors=userIds.length?await prisma.user.findMany({where:{id:{in:userIds}},select:{id:true,nama:true}}):[];
+  const actorNames=new Map(actors.map(actor=>[actor.id,actor.nama]));
+  res.json(logs.map(log=>({ ...log,olehNama:actorNames.get(log.oleh)||null })));
+ }catch(error){
+  console.error('Failed to read final archive verification history:',error);
+  res.status(500).json({error:'Gagal memuat riwayat verifikasi Arsip'});
+ }
+});
+
+app.get('/api/opd/archives',authMiddleware,async(req,res)=>{
+ const user=req.currentUser;if(user.role!=='opd')return res.status(403).json({error:'Arsip OPD hanya untuk akun OPD'});
+ const tahun=String(req.query.tahun||'all');if(tahun!=='all'&&!/^\d{4}$/.test(tahun))return res.status(400).json({error:'Tahun tidak valid'});
+ const docs=await prisma.document.findMany({where:{opdId:user.opdId,status:'Final',parentId:null,isLampiranOtomatis:false,...(tahun==='all'?{}:{tahun}),jenis:{in:OPD_DOCUMENT_TYPES}},include:{sections:true},orderBy:[{tahun:'desc'},{jenis:'asc'}]});
+ res.json(docs);
+});
 
 app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
   const user = req.currentUser;
@@ -1428,7 +1600,7 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
             opdId: { not: 'bapperida' },
             parentId: null,
             isLampiranOtomatis: false,
-            status: { in: ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui'] }
+            status: { in: ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui Bapperida', 'Final'] }
           }]
         },
         select: { id: true, opdName: true }
@@ -1445,18 +1617,19 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
         ...documentFilter,
         parentId: null,
         isLampiranOtomatis: false,
-        status: { in: ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui'] }
+        status: { in: ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui Bapperida', 'Final'] }
       };
-      const [total, menunggu, revisi, disetujui] = await Promise.all([
+      const [total, menunggu, revisi, disetujui, final] = await Promise.all([
         prisma.document.count({ where: incomingFilter }),
         prisma.document.count({ where: { ...incomingFilter, status: 'Menunggu Verifikasi' } }),
         prisma.document.count({ where: { ...incomingFilter, status: 'Perlu Revisi' } }),
-        prisma.document.count({ where: { ...incomingFilter, status: 'Disetujui' } }),
+        prisma.document.count({ where: { ...incomingFilter, status: 'Disetujui Bapperida' } }),
+        prisma.document.count({ where: { ...incomingFilter, status: 'Final' } }),
       ]);
 
       res.json({
         role: user.role, totalUsulan: total,
-        menungguTelaah: menunggu, perluRevisi: revisi, disetujui,
+        menungguTelaah: menunggu, perluRevisi: revisi, disetujui, final,
         persenSah: total > 0 ? ((disetujui / total) * 100).toFixed(1) : '0',
         activities: activities.map(a => ({
           ...a,
@@ -1479,7 +1652,8 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
         totalDokumen: opdDocs.length,
         draf: opdDocs.filter(d => d.status === 'Draft').length,
         menunggu: opdDocs.filter(d => d.status === 'Menunggu Verifikasi').length,
-        sah: opdDocs.filter(d => d.status === 'Disetujui').length,
+        sah: opdDocs.filter(d => d.status === 'Disetujui Bapperida').length,
+        final: opdDocs.filter(d => d.status === 'Final').length,
         activeRevisions: revisions,
         latestRevision: revisions[0] || null
       });
@@ -1504,6 +1678,7 @@ app.put('/api/documents/:id/regulation', authMiddleware, async (req, res) => {
   if (denyUnlessSuperAdmin(req, res)) return;
   try {
     const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
+    if (doc?.status === 'Final') return res.status(423).json({ error: 'Dokumen Final terkunci' });
     if (!doc?.isLampiranOtomatis) return res.status(400).json({ error: 'Dokumen bukan lampiran' });
     const regulation = {
       ...(doc.regulation || {}),

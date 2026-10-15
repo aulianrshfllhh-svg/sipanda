@@ -1,4 +1,4 @@
-﻿<template>
+<template>
  <div class="mx-auto max-w-4xl space-y-6">
   <header>
    <h1 class="text-2xl font-bold text-slate-900">Pengaturan Dokumen</h1>
@@ -48,6 +48,10 @@
    <fieldset v-if="store.isSuperAdmin" :disabled="busy" class="grid grid-cols-2 gap-4 border-t pt-4">
     <label>Nama Bupati<input v-model="settings.global.bupati" class="block border p-2 w-full"/></label>
     <label>Nama Sekretaris Daerah<input v-model="settings.global.sekretarisDaerah" class="block border p-2 w-full"/></label>
+    <label class="text-sm">Batas Waktu Verifikasi (Hari)
+      <input v-model.number="settings.global.batasHariVerifikasi" type="number" min="1" max="30" class="block border rounded p-2 w-full mt-1" placeholder="3"/>
+      <span class="text-[10px] text-slate-500">Batas toleransi verifikasi sebelum ditandai peringatan (default: 3 hari).</span>
+    </label>
     <div class="sm:col-span-2">
      <label for="cover-logo" class="text-sm font-medium">Logo Kabupaten Cirebon untuk cover (PNG transparan, tinggi minimal 472 piksel)</label>
      <input id="cover-logo" type="file" accept="image/png,.png" :disabled="busy" class="mt-2 block w-full text-sm" @change="selectLogo" />

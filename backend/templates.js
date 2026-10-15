@@ -3,10 +3,9 @@ import { randomUUID } from 'node:crypto';
 export const canonicalType = jenis => jenis === 'RKPD' ? 'RKPD Murni' : jenis;
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const guidance = text => `<p>Petunjuk: ${text}</p>`;
 const outline = chapters => chapters.map(([title, subsections], i) => ({
   id:`bab-${i+1}`, order:i+1, title:`BAB ${['I','II','III','IV','V','VI','VII','VIII','IX'][i]} ${title}`, locked:true,
-  subsections:subsections.map(([title, prompt], j) => ({id:`sub-${i+1}-${j+1}`,code:`${i+1}.${j+1}`,title,locked:true,content:guidance(prompt || `Uraikan ${title.toLowerCase()} dengan data, indikator, dan sumber yang dapat dipertanggungjawabkan.`)}))
+  subsections:subsections.map(([title], j) => ({id:`sub-${i+1}-${j+1}`,code:`${i+1}.${j+1}`,title,locked:true,content:''}))
 }));
 
 const intro = [
@@ -132,6 +131,21 @@ function rkpdSections(changed) {
   ]);
 }
 
+function evaluasiRkpdSections() {
+  return outline([
+    ['PENDAHULUAN', introWithRelations],
+    ['EVALUASI HASIL RKPD', [
+      ['Capaian Kinerja Program dan Kegiatan','Sajikan realisasi indikator, target, dan pelaksanaan program/kegiatan RKPD sampai dengan triwulan evaluasi serta bandingkan dengan rencana.'],
+      ['Realisasi Pendanaan','Jelaskan realisasi pendanaan program/kegiatan, kesesuaiannya dengan target, dan faktor yang memengaruhi penyerapan.'],
+      ['Permasalahan dan Faktor Penghambat','Uraikan kendala pelaksanaan, faktor pendorong, dampak terhadap capaian, dan perangkat daerah yang terkait.'],
+    ]],
+    ['KESIMPULAN DAN REKOMENDASI', [
+      ['Kesimpulan Evaluasi','Rangkum tingkat pencapaian RKPD berdasarkan indikator kinerja dan realisasi program/kegiatan.'],
+      ['Rekomendasi Tindak Lanjut','Rumuskan langkah perbaikan, penyesuaian kebijakan, serta tindak lanjut untuk triwulan berikutnya.'],
+    ]],
+  ]);
+}
+
 function rpjmdSections() {
   return outline([
     ['PENDAHULUAN', introWithRelations],
@@ -174,6 +188,7 @@ export function seedSections(jenis, tahun = '2027') {
   if (jenis === 'RPJMD') return [];
   if (jenis.startsWith('Renstra')) return renstraSections();
   if (jenis.startsWith('Renja')) return renjaSections(jenis.includes('Perubahan'), String(tahun));
+  if (jenis === 'Evaluasi RKPD Triwulan') return evaluasiRkpdSections();
   if (jenis.startsWith('RKPD')) return rkpdSections(jenis.includes('Perubahan'));
   return [];
 }
@@ -187,6 +202,7 @@ const templateTypes = [
   ['Renja Perubahan','2026','Perubahan Renja 2026'],
   ['RKPD Murni','2026','RKPD 2026'],
   ['RKPD Perubahan','2026','Perubahan RKPD 2026'],
+  ['Evaluasi RKPD Triwulan',null,'Template Evaluasi RKPD Triwulan'],
   ['Renstra Murni',null,'Template Renstra Murni'],
   ['Renstra Perubahan',null,'Template Renstra Perubahan'],
   ['RPJMD','2027','RPJMD 2027'],
@@ -234,7 +250,7 @@ export async function ensureTemplates(prisma) {
 
 export function instantiate(template,opd,tahun,periodeAkhir=tahun) {
   const replace = text => String(text).replaceAll('{opd}',opd).replaceAll('{tahun}',String(tahun)).replaceAll('{periodeMulai}',String(tahun)).replaceAll('{periodeAkhir}',String(periodeAkhir)).replaceAll('{evaluasi}',String(Number(tahun)-2)).replaceAll('{maju}',String(Number(tahun)+1));
-  return structuredClone(template.sections).map((bab,i)=>({...bab,order:i+1,locked:true,title:replace(bab.title),subsections:bab.subsections.map(sub=>({...sub,locked:true,title:replace(sub.title),content:replace(sub.content)}))}));
+  return structuredClone(template.sections).map((bab,i)=>({...bab,order:i+1,locked:true,title:replace(bab.title),subsections:bab.subsections.map(sub=>({...sub,locked:true,title:replace(sub.title),content:replace(sub.content).replace(/<p\b[^>]*>\s*Petunjuk\s*:[\s\S]*?<\/p>/gi,'')}))}));
 }
 
 export function validateStructure(sections) {

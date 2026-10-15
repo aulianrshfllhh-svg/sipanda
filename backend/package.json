@@ -13,7 +13,8 @@
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma migrate reset",
     "db:seed-planning": "node seed-planning.js",
-    "test": "node --test tests/*.test.js"
+    "db:seed-revision-dummy": "node seed-revision-dummy.js",
+    "test": "node tests/run-node-tests.js && vitest run"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

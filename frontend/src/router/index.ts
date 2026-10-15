@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+﻿import { createRouter, createWebHistory } from 'vue-router';
 import DashboardView from '../views/DashboardView.vue';
 import DokumenPerencanaan from '../views/DokumenPerencanaan.vue';
 import ArsipDokumen from '../views/ArsipDokumen.vue';
@@ -33,18 +33,36 @@ const routes = [
   },
   {
     path: '/lampiran',
-    name: 'Lampiran',
+    name: 'Format Lampiran Perbup/Kepbup',
     component: () => import('../views/LampiranView.vue'),
   },
+  { path:'/evaluasi-renja-triwulan',name:'Evaluasi Renja Triwulan',component:()=>import('../views/EvaluasiTriwulan.vue') },
+  { path:'/evaluasi-rkpd-triwulan',name:'Evaluasi RKPD Triwulan',component:()=>import('../views/EvaluasiTriwulan.vue'),meta:{adminOnly:true} },
   {
     path: '/monitoring',
     name: 'MonitoringOpd',
     component: MonitoringOpd,
+    meta: { bapperidaOnly: true },
   },
   {
     path: '/verifikasi',
     name: 'StatusVerifikasi',
     component: StatusVerifikasi,
+  },
+  {
+    path: '/verifikasi/:id',
+    name: 'StatusVerifikasiDetail',
+    component: StatusVerifikasi,
+  },
+  {
+    path: '/verifikasi-final',
+    name: 'VerifikasiFinal',
+    component: () => import('../views/VerifikasiFinalView.vue'),
+  },
+  {
+    path: '/verifikasi-final/:id',
+    name: 'VerifikasiFinalDetail',
+    component: () => import('../views/VerifikasiFinalView.vue'),
   },
   {
     path: '/penugasan-staf',
@@ -68,11 +86,30 @@ const router = createRouter({
 });
 
 router.beforeEach(to => {
-  if (to.name === 'Login' || localStorage.getItem('sipanda_token')) return true;
-  return {
-    name: 'Login',
-    query: { redirect: to.fullPath }
-  };
+  if (to.name === 'Login') return true;
+  if (!localStorage.getItem('sipanda_token')) {
+    return {
+      name: 'Login',
+      query: { redirect: to.fullPath }
+    };
+  }
+  if (to.meta.adminOnly) {
+    try {
+      const user = JSON.parse(localStorage.getItem('sipanda_user') || 'null');
+      const allowed = user?.role === 'admin' || user?.role === 'staf' ||
+        user?.roleKodes?.includes('penyusun_rkpd');
+      if (!allowed) return { name: 'DokumenPerencanaan' };
+    } catch {
+      return { name: 'DokumenPerencanaan' };
+    }
+  }
+  if (to.meta.bapperidaOnly) {
+    try {
+      const user = JSON.parse(localStorage.getItem('sipanda_user') || 'null');
+      if (!['admin', 'staf'].includes(user?.role)) return { name: 'DokumenPerencanaan' };
+    } catch { return { name: 'DokumenPerencanaan' }; }
+  }
+  return true;
 });
 
 export default router;

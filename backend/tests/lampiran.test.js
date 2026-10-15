@@ -40,7 +40,7 @@ test('automatic annex mirrors its parent until approved, then rebuilds only on e
  await syncLampiran(state.prisma,state.parent);
  assert.equal(state.child.sections[0].subsections[0].content,'Versi terbaru');
 
- state.child.status='Disetujui';
+ state.child.status='Final';
  state.child.regulation.nomorPeraturan='17';
  state.parent.sections[0].subsections[0].content='Perubahan setelah persetujuan';
  await syncLampiran(state.prisma,state.parent);

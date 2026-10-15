@@ -7,41 +7,61 @@ test('monitoring classifies Renstra and generated annex types without RKPD',()=>
  for(const jenis of ['Lampiran Renja','Lampiran Perbup Renja','Lampiran Kepbup Perubahan Renja','Lampiran Perbup Renstra'])assert.equal(archiveCategory({jenis}),'Lampiran Matriks');
 });
 test('annex approval and verification metadata follow approved parent, no invented versions',()=>{
- const parent={status:'Disetujui',cara:'upload',filePath:'/uploads/a.pdf',versions:[],verifications:[{status:'Disetujui',createdAt:'2026-10-01',verifier:{nama:'Verifier'}},{status:'Perlu Revisi'}]};
- const child={jenis:'Lampiran Perbup Renja',status:'Disetujui',isLampiranOtomatis:true};
+ const parent={status:'Final',cara:'upload',filePath:'/uploads/a.pdf',versions:[],verifications:[{status:'Disetujui Bapperida',createdAt:'2026-10-01',verifier:{nama:'Verifier'}},{status:'Perlu Revisi'}]};
+ const child={jenis:'Lampiran Perbup Renja',status:'Final',isLampiranOtomatis:true};
  const result=archiveRecord(child,parent);assert.equal(result.verifier,'Verifier');assert.equal(result.verifiedAt,'2026-10-01');assert.equal(result.version,null);assert.equal(result.revisionCount,1);assert.equal(result.available,true);
  const pending=archiveRecord(child,{...parent,status:'Perlu Revisi'});assert.equal(pending.status,'Perlu Revisi');assert.equal(pending.verifiedAt,null);
- const missing=archiveRecord({jenis:'Renja Murni',status:'Disetujui',cara:'upload'});assert.equal(missing.verifiedAt,null);assert.equal(missing.available,false);
+ const missing=archiveRecord({jenis:'Renja Murni',status:'Final',cara:'upload'});assert.equal(missing.verifiedAt,null);assert.equal(missing.available,false);
 });
 test('archive API defaults to approved, includes summaries, applies document access',async()=>{
  let handler;
- const docs=[{id:'a',opdId:'o',jenis:'Renja Murni',tahun:'2027',status:'Disetujui'}, {id:'b',opdId:'o',jenis:'Renja Perubahan',tahun:'2026',status:'Draft'}, {id:'hidden',opdId:'o',jenis:'Renstra',status:'Disetujui'}];
- const prisma={opd:{findMany:async()=>[{id:'o',nama:'OPD'}]},document:{findMany:async(query)=>{assert.equal(query.where.status,'Disetujui');assert.ok(query.where.OR);return docs;}}};
- registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1)},prisma,()=>{},()=>true,async(_,doc)=>({canView:doc.id!=='hidden'}));
+ const docs=[{id:'a',opdId:'o',jenis:'Renja Murni',tahun:'2027',status:'Final'}, {id:'b',opdId:'o',jenis:'Renja Perubahan',tahun:'2026',status:'Draft'}, {id:'hidden',opdId:'o',jenis:'Renstra',status:'Final'}];
+ const prisma={opd:{findMany:async()=>[{id:'o',nama:'OPD'}]},document:{findMany:async(query)=>{assert.deepEqual(query.where.status.in,['Menunggu Verifikasi','Perlu Revisi','Disetujui Bapperida','Final']);assert.ok(query.where.OR);return docs;}},notification:{findMany:async()=>[]}};
+ registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1),post(){}},prisma,()=>{},()=>true,async(_,doc)=>({canView:doc.id!=='hidden'}));
  const response={statusCode:200,status(s){this.statusCode=s;return this;},json(data){this.data=data;return this;}};
- await handler({query:{tahun:'2027'},currentUser:{}},response);
+ await handler({query:{tahun:'2027',tab:'history'},currentUser:{role:'admin'}},response);
  assert.deepEqual(response.data.opds[0].documents.map(d=>d.id),['a']);assert.equal(response.data.opds[0].categories['Renja Perubahan'].approved,0);
- await handler({query:{tahun:'2027',status:'Semua'},currentUser:{}},response);assert.equal(response.data.opds[0].documents.length,1);
+ await handler({query:{tahun:'2027',status:'Semua'},currentUser:{}},response);assert.equal(response.statusCode,400);
  await handler({query:{tahun:'bad'},currentUser:{}},response);assert.equal(response.statusCode,400);
 });
 test('archive API denies OPD accounts before reading records',async()=>{
- let handler;registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1)}, {},()=>{},()=>false,()=>{});
+ let handler;registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1),post(){}}, {},()=>{},()=>false,()=>{});
  const response={status(s){this.statusCode=s;return this;},json(data){this.data=data;}};
  await handler({query:{},currentUser:{role:'opd'}},response);assert.equal(response.statusCode,403);
+});
+
+test('verifikator ditolak saat meminta OPD di luar penugasannya',async()=>{
+ let handler,documentRead=false;
+ const prisma={penugasanVerifikasi:{findMany:async()=>[{opdId:'assigned'}]},opd:{findMany:async()=>[]},document:{findMany:async()=>{documentRead=true;return[];}}};
+ registerMonitoringArchives({get:(_path,...handlers)=>handler=handlers.at(-1),post(){}},prisma,()=>{},()=>false,async()=>({canView:true}));
+ const response={statusCode:200,status(code){this.statusCode=code;return this;},json(data){this.data=data;return this;}};
+ await handler({query:{opdId:'other',tab:'history',tahun:'2026'},currentUser:{id:'staff-1',role:'staf'}},response);
+ assert.equal(response.statusCode,403);assert.equal(documentRead,false);
+});
+
+test('monitoring reminders are logged, throttled for 24 hours, and force is Super Admin only',async()=>{
+ let handler;const sent=[];
+ const prisma={opd:{findMany:async({where})=>where.id.in.map(id=>({id}))},notification:{findMany:async({where})=>sent.filter(row=>row.opdId&&where.opdId.in.includes(row.opdId)&&row.createdAt>=where.createdAt.gte),createMany:async({data})=>{sent.push(...data.map(row=>({...row,createdAt:new Date()})));return {count:data.length};}}};
+ registerMonitoringArchives({get(){},post:(_path,...handlers)=>handler=handlers.at(-1)},prisma,()=>{},user=>user.role==='admin',()=>{});
+ const response={statusCode:200,status(code){this.statusCode=code;return this;},json(data){this.data=data;return this;}};
+ const request={body:{tahun:'2026',opdIds:['a','b']},currentUser:{id:'admin-1',role:'admin'}};
+ await handler(request,response);assert.equal(response.data.sentCount,2);assert.equal(sent[0].title,'Pengingat Monitoring OPD');assert.equal(sent[0].senderId,'admin-1');
+ await handler(request,response);assert.equal(response.data.sentCount,0);assert.equal(response.data.skippedCount,2);
+ await handler({...request,body:{...request.body,force:true}},response);assert.equal(response.data.sentCount,2);
 });
 
 test('opening OPD archives without a year returns approved documents across years',async()=>{
  let handler;
  const docs=[
-  {id:'old',opdId:'health',jenis:'Renja Murni',tahun:'2025',status:'Disetujui'},
-  {id:'new',opdId:'health',jenis:'Renja Murni',tahun:'2027',status:'Disetujui'}
+  {id:'old',opdId:'health',jenis:'Renja Murni',tahun:'2025',status:'Final'},
+  {id:'new',opdId:'health',jenis:'Renja Murni',tahun:'2027',status:'Final'}
  ];
  const prisma={opd:{findMany:async()=>[{id:'health',nama:'Dinas Kesehatan'}]},document:{findMany:async({where})=>{
-  assert.equal(where.status,'Disetujui');
+  assert.deepEqual(where.status.in,['Final']);
   assert.equal(where.OR[0].tahun,undefined);
   return docs;
- }}};
- registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1)},prisma,()=>{},()=>true,async()=>({canView:true}));
+ }},notification:{findMany:async()=>[]}};
+ registerMonitoringArchives({get:(_,...handlers)=>handler=handlers.at(-1),post(){}},prisma,()=>{},()=>true,async()=>({canView:true}));
  const response={statusCode:200,status(code){this.statusCode=code;return this;},json(data){this.data=data;}};
  for(const query of [{},{tahun:'all'}]){
   await handler({query,currentUser:{role:'admin'}},response);

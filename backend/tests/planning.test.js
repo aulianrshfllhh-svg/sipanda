@@ -6,6 +6,7 @@ import {cleanHtml,renderDocument} from '../document-render.js';
 
 test('specified year/type outlines and placeholders',()=>{
  const renja2027=seedSections('Renja Murni','2027');
+ assert.ok(renja2027.every(bab=>bab.subsections.every(sub=>!sub.content)));
  assert.equal(renja2027.length,5);
  assert.match(renja2027[0].title,/PENDAHULUAN/);
  assert.match(renja2027[1].title,/HASIL EVALUASI RENJA/);
@@ -18,6 +19,10 @@ test('specified year/type outlines and placeholders',()=>{
  assert.ok(SEED_TEMPLATES.some(template=>template.jenis==='Renja Perubahan'&&template.tahun==='2026'&&template.isActive));
  assert.equal(seedSections('Renja Perubahan','2026')[1].title,'BAB II EVALUASI PERUBAHAN RENJA SAMPAI DENGAN TRIWULAN II TAHUN BERKENAAN');
  assert.equal(seedSections('RKPD Murni','2027').length,7);
+ const evaluasiRkpd=seedSections('Evaluasi RKPD Triwulan','2027');
+ assert.equal(evaluasiRkpd.length,3);
+ assert.match(evaluasiRkpd[1].title,/EVALUASI HASIL RKPD/);
+ assert.ok(SEED_TEMPLATES.some(template=>template.jenis==='Evaluasi RKPD Triwulan'&&template.tahun===null&&template.isActive));
  for (const jenis of ['RKPD Murni','RKPD Perubahan']) {
   const template=SEED_TEMPLATES.find(item=>item.jenis===jenis&&item.tahun==='2026'&&item.isActive);
   assert.ok(template);
@@ -28,6 +33,10 @@ test('specified year/type outlines and placeholders',()=>{
  assert.deepEqual(seedSections('RPJMD','2027'),[]);
  const source=SEED_TEMPLATES[0],before=structuredClone(source);
  const result=instantiate(source,'Kecamatan Mundu',2027);
+ assert.ok(result.every(bab=>bab.subsections.every(sub=>!sub.content)));
+ const legacyTemplate=structuredClone(source);
+ legacyTemplate.sections[0].subsections[0].content='<p>Petunjuk: teks panduan lama.</p><p>Narasi yang ditulis pengguna.</p>';
+ assert.equal(instantiate(legacyTemplate,'Kecamatan Mundu',2027)[0].subsections[0].content,'<p>Narasi yang ditulis pengguna.</p>');
  assert.match(result[1].title,/TAHUN 2025/);assert.match(result[1].title,/Kecamatan Mundu/);
  result[0].title='edit';result[1].subsections[2].tables[0].rows.push({level:'baris',cells:[]});assert.deepEqual(source,before);
  const change=JSON.stringify(instantiate(SEED_TEMPLATES[1],'Kecamatan Mundu',2027));

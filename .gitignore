@@ -1,3 +1,17 @@
 backend/.editor-review-archives/
 backend/.env.test
 tests/output/
+
+# Generated and local-only files
+node_modules/
+**/node_modules/
+dist/
+dist-ssr/
+coverage/
+test-results/
+.vite/
+.vercel/
+__pycache__/
+*.py[cod]
+logs/
+*.local

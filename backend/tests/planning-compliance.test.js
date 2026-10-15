@@ -1,9 +1,9 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { buildPlanningCompliance, registerPlanningComplianceRoute } from '../planning-compliance.js';
 
-function document(id, opdId, jenis, tahun, status = 'Disetujui', extra = {}) {
+function document(id, opdId, jenis, tahun, status = 'Disetujui Bapperida', extra = {}) {
   return {
     id, opdId, jenis, tahun, status, updatedAt: new Date('2026-10-01'),
     regulation: null, ...extra
@@ -18,7 +18,7 @@ test('compliance counts the two annual Renja plans and their approved generated 
   const parents = [
     document('murni-1', 'opd-1', 'Renja Murni', '2027'),
     document('perubahan-1', 'opd-1', 'Renja Perubahan', '2026'),
-    document('renstra-1', 'opd-1', 'Renstra', '2025', 'Disetujui', { regulation: { periodeMulai: '2025', periodeAkhir: '2029' } }),
+    document('renstra-1', 'opd-1', 'Renstra', '2025', 'Disetujui Bapperida', { regulation: { periodeMulai: '2025', periodeAkhir: '2029' } }),
     document('murni-2', 'opd-2', 'Renja Murni', '2027'),
     document('perubahan-2', 'opd-2', 'Renja Perubahan', '2026', 'Perlu Revisi'),
     document('renstra-2', 'opd-2', 'Renstra Murni', '2025', 'Menunggu Verifikasi', { regulation: { periodeMulai: '2025', periodeAkhir: '2029' } }),
@@ -26,12 +26,12 @@ test('compliance counts the two annual Renja plans and their approved generated 
     document('rkpd', 'opd-1', 'RKPD Murni', '2026')
   ];
   const annexes = [
-    { id: 'annex-murni-1', parentId: 'murni-1', jenis: 'Lampiran Perbup Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-change-1', parentId: 'perubahan-1', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-renstra-1', parentId: 'renstra-1', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-murni-2', parentId: 'murni-2', jenis: 'Lampiran Perbup Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-change-2', parentId: 'perubahan-2', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-renstra-2', parentId: 'renstra-2', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui', isLampiranOtomatis: true }
+    { id: 'annex-murni-1', parentId: 'murni-1', jenis: 'Lampiran Perbup Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-change-1', parentId: 'perubahan-1', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-renstra-1', parentId: 'renstra-1', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-murni-2', parentId: 'murni-2', jenis: 'Lampiran Perbup Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-change-2', parentId: 'perubahan-2', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-renstra-2', parentId: 'renstra-2', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui Bapperida', isLampiranOtomatis: true }
   ];
 
   const report = buildPlanningCompliance(opds, parents, annexes, '2026');
@@ -65,7 +65,7 @@ test('annual submitted ratio includes Renja annexes while Renstra remains on its
  const opds=[{id:'health',nama:'Dinas Kesehatan'}];
  const parents=[
   document('murni','health','Renja Murni','2027','Menunggu Verifikasi'),
-  document('optional','health','Renstra Perubahan','2026','Disetujui')
+  document('optional','health','Renstra Perubahan','2026','Disetujui Bapperida')
  ];
  const annexes=[{id:'annex',parentId:'murni',jenis:'Lampiran Perbup Renja',status:'Menunggu Verifikasi',isLampiranOtomatis:true}];
  const report=buildPlanningCompliance(opds,parents,annexes,'2026');
@@ -80,8 +80,25 @@ test('annual submitted ratio includes Renja annexes while Renstra remains on its
  assert.equal(empty.totalDocuments,284);
 });
 
+test('submitted count includes current approval and Final states but ignores Draft',()=>{
+ const opd=[{id:'health',nama:'Dinas Kesehatan'}];
+ const docs=[document('murni','health','Renja Murni','2027','Disetujui Bapperida'),document('change','health','Renja Perubahan','2026','Final')];
+ const annexes=[{id:'annex-murni',parentId:'murni',jenis:'Lampiran Perbup Renja',status:'Final',isLampiranOtomatis:true},{id:'annex-change',parentId:'change',jenis:'Lampiran Kepbup Perubahan Renja',status:'Draft',isLampiranOtomatis:true}];
+ const row=buildPlanningCompliance(opd,docs,annexes,'2026').opds[0];
+ assert.equal(row.submittedCount,3);
+ assert.equal(row.ratio,'3/4');
+});
+
+test('Super Admin can change the annual required item list for monitoring',()=>{
+ const opd=[{id:'health',nama:'Dinas Kesehatan'}];
+ const report=buildPlanningCompliance(opd,[],[],'2026',['renjaMurni','renjaPerubahan']);
+ assert.equal(report.opds[0].requiredCount,2);
+ assert.equal(report.opds[0].ratio,'0/2');
+});
+
 async function withServer(prisma, run) {
   const app = express();
+  app.use(express.json());
   app.use((req, _res, next) => {
     const role = req.headers['x-role'] || 'opd';
     req.currentUser = { id: 'user-1', role, roleKodes: role === 'admin' ? ['super_admin'] : [] };
@@ -103,15 +120,16 @@ test('monitoring API uses selected target year, excludes RKPD/RPJMD, and exposes
   const parents = [
     document('murni', 'opd-1', 'Renja Murni', '2027'),
     document('change', 'opd-1', 'Renja Perubahan', '2026'),
-    document('renstra', 'opd-1', 'Renstra', '2025', 'Disetujui', { regulation: { periodeMulai: '2025', periodeAkhir: '2029' } })
+    document('renstra', 'opd-1', 'Renstra', '2025', 'Disetujui Bapperida', { regulation: { periodeMulai: '2025', periodeAkhir: '2029' } })
   ];
   const annexes = [
-    { id: 'annex-murni', parentId: 'murni', jenis: 'Lampiran Perbup Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-change', parentId: 'change', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui', isLampiranOtomatis: true },
-    { id: 'annex-renstra', parentId: 'renstra', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui', isLampiranOtomatis: true }
+    { id: 'annex-murni', parentId: 'murni', jenis: 'Lampiran Perbup Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-change', parentId: 'change', jenis: 'Lampiran Kepbup Perubahan Renja', status: 'Disetujui Bapperida', isLampiranOtomatis: true },
+    { id: 'annex-renstra', parentId: 'renstra', jenis: 'Lampiran Perbup Renstra', status: 'Disetujui Bapperida', isLampiranOtomatis: true }
   ];
   let parentQuery;
   const prisma = {
+    documentSettings: { findUnique: async () => null, upsert: async ({create}) => create },
     opd: { findMany: async () => [opd] },
     document: { findMany: async ({ where }) => {
       if (where.parentId === null) {
@@ -141,4 +159,17 @@ test('monitoring API uses selected target year, excludes RKPD/RPJMD, and exposes
     const forbidden = await fetch(`${url}/api/stats/monitoring?tahun=2026`, { headers: { 'x-role': 'opd' } });
     assert.equal(forbidden.status, 403);
   });
+});
+
+test('Pengaturan Monitoring is readable to staff but writable only by Super Admin',async()=>{
+ let saved=null;
+ const prisma={documentSettings:{findUnique:async()=>saved,upsert:async({create,update})=>{saved={data:create?.data||update.data};return saved;}}};
+ await withServer(prisma,async url=>{
+  const defaults=await fetch(`${url}/api/monitoring/settings`,{headers:{'x-role':'staf'}});
+  assert.equal(defaults.status,200);assert.deepEqual((await defaults.json()).requiredItems,['renjaMurni','lampiranRenjaMurni','renjaPerubahan','lampiranRenjaPerubahan']);
+  const denied=await fetch(`${url}/api/monitoring/settings`,{method:'PUT',headers:{'x-role':'staf','content-type':'application/json'},body:JSON.stringify({tahunAnggaranAktif:'2027',requiredItems:['renjaMurni']})});
+  assert.equal(denied.status,403);
+  const updated=await fetch(`${url}/api/monitoring/settings`,{method:'PUT',headers:{'x-role':'admin','content-type':'application/json'},body:JSON.stringify({tahunAnggaranAktif:'2027',requiredItems:['renjaMurni','renjaPerubahan'],batasWaktu:'2026-12-01'})});
+  assert.equal(updated.status,200);const config=await updated.json();assert.equal(config.tahunAnggaranAktif,'2027');assert.equal(config.requiredItems.length,2);
+ });
 });

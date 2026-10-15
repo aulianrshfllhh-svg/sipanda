@@ -18,7 +18,7 @@
             <h1 class="text-sm font-bold text-slate-900 truncate max-w-md">
               {{ currentDoc?.judul || 'Editor Dokumen' }}
             </h1>
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="statusBadgeClass">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="statusBadgeClass" :title="currentDoc?.status === 'Final' ? 'Terkunci' : currentDoc?.status === 'Disetujui Bapperida' ? 'Masih dapat dikoreksi' : undefined">
               {{ currentDoc?.status }}
             </span>
             <span v-if="currentDoc?.isLampiranOtomatis" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
@@ -738,7 +738,7 @@
                 class="p-3 rounded-2xl border-2 text-left transition-all"
                 :class="verifyDecision === 'Disetujui' ? 'border-emerald-600 bg-emerald-50 text-emerald-900' : 'border-slate-200 text-slate-700'"
               >
-                <div class="font-bold text-sm">Disetujui & Sah</div>
+                <div class="font-bold text-sm">Disetujui Bapperida</div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Terbitkan BA Sah dan nomor registrasi arsip.</div>
               </button>
 
@@ -1531,7 +1531,8 @@ const statusBadgeClass = computed(() => {
     case 'Draft': return 'bg-slate-100 text-slate-700 border border-slate-200';
     case 'Menunggu Verifikasi': return 'bg-amber-100 text-amber-700 border border-amber-200';
     case 'Perlu Revisi': return 'bg-red-100 text-red-700 border border-red-200';
-    case 'Disetujui': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    case 'Disetujui Bapperida': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    case 'Final': return 'bg-emerald-800 text-white border border-emerald-900';
     default: return 'bg-slate-100 text-slate-700';
   }
 });
@@ -1568,6 +1569,18 @@ const completionPercent = computed(() => {
 });
 
 function normalizeLoadedOrientations(doc:DocumentItem){for(const bab of doc.sections||[])for(const sub of bab.subsections||[]){const result=normalizeSubsectionOrientation(sub,html=>new DOMParser().parseFromString(html,'text/html').body);Object.assign(sub,result.subsection);if(result.mixedLegacy)sub.legacyOrientationWarning=true;}}
+function removeChapterGuidance(doc:DocumentItem){
+ let removed=false;
+ for(const bab of doc.sections||[])for(const sub of bab.subsections||[]){
+  const body=new DOMParser().parseFromString(sub.content||'','text/html').body;
+  let subsectionChanged=false;
+  body.querySelectorAll('p').forEach(paragraph=>{
+   if(/^\s*Petunjuk\s*:/i.test(paragraph.textContent||'')){paragraph.remove();subsectionChanged=true;removed=true;}
+  });
+  if(subsectionChanged)sub.content=body.innerHTML;
+ }
+ return removed;
+}
 
 const loadDocument = async () => {
   const docId = route.params.id as string;
@@ -1576,11 +1589,15 @@ const loadDocument = async () => {
     if (res.ok) {
       currentDoc.value = await res.json();
       normalizeLoadedOrientations(currentDoc.value!);
+      const originalBaseline=Object.fromEntries((currentDoc.value?.sections||[]).map((bab,i)=>[bab.id,chapterContent(bab,currentDoc.value?.frontMatter,i===0)]));
+      let removedGuidance=removeChapterGuidance(currentDoc.value!);
       if(currentDoc.value?.status==='Perlu Revisi'){try{const comments=await apiFetch(`/api/documents/${docId}/comments`);if(comments.ok)openCommentCount.value=(await comments.json()).filter((c:any)=>!c.parent_id&&!c.resolved).length;}catch{store.addToast('Komentar revisi belum dapat dimuat. Buka Komentar / Riwayat saat tersambung.','info');}}
       baseRevisions={...currentDoc.value?.editorRevisions};
-      baseline=Object.fromEntries((currentDoc.value?.sections||[]).map((bab,i)=>[bab.id,chapterContent(bab,currentDoc.value?.frontMatter,i===0)]));
+      baseline=originalBaseline;
       await renewEditorSession();
       await restoreDeviceDraft();
+      if(removeChapterGuidance(currentDoc.value!))removedGuidance=true;
+      if(removedGuidance)for(const bab of currentDoc.value?.sections||[])if(!canEditSection(bab.id))baseline[bab.id]=chapterContent(bab,currentDoc.value?.frontMatter,currentDoc.value?.sections?.[0]?.id===bab.id);
       Object.assign(regulation, currentDoc.value?.regulation || {});
       if (isRkpdDocument.value) {
         await loadChapterAssignments();
@@ -1588,6 +1605,7 @@ const loadDocument = async () => {
       }
       await nextTick();
       renumberCaptions();
+      if(removedGuidance&&dirtyChapters().some(bab=>canEditSection(bab.id)))triggerAutosave();
       void checkpoint().catch(()=>{});
     } else {
       const result = await res.json().catch(() => ({}));
@@ -1892,8 +1910,9 @@ async function persistChanges(): Promise<void> {
   const request=(async()=>{
     isSaving.value=true;
     try{
-      const response=await apiFetch(`/api/documents/${doc.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const updated=await response.json();
+      const correcting=doc.status==='Disetujui Bapperida';
+      const response=await apiFetch(`/api/documents/${doc.id}${correcting?'/correction':''}`,{method:correcting?'POST':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const result=await response.json();const updated=correcting?(result.document||doc):result;
       if(!response.ok)throw Object.assign(new Error(updated.error||'Gagal menyimpan dokumen'),{status:response.status});
       for(const bab of payload.sections)if(updated.editorRevisions?.[bab.id])baseRevisions[bab.id]=updated.editorRevisions[bab.id];Object.assign(baseline,savedBaseline);
       if(updated.permissions)doc.permissions=updated.permissions;
@@ -2087,5 +2106,3 @@ onUnmounted(() => {
   releaseEditorSession();
 });
 </script>
-
-

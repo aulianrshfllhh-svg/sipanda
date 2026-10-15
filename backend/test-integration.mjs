@@ -33,7 +33,7 @@ try{
  await call(`/documents/${submission.id}`,'PUT',{sections:submission.sections},opd);
  await call(`/documents/${submission.id}/submit`,'POST',{},opd);
  await call(`/documents/${submission.id}/verify`,'POST',{status:'Disetujui'});
- const verifiedChild=await p.document.findFirst({where:{parentId:submission.id}});assert.equal(verifiedChild.status,'Disetujui');
+ const verifiedChild=await p.document.findFirst({where:{parentId:submission.id}});assert.equal(verifiedChild.status,'Disetujui Bapperida');
  console.log('PASS: template versions, immutable snapshots, structure lock, full lampiran sync after partial save, CSV import, admin-only management, per-chapter Renja Bapperida access');
 }finally{
  for(const id of createdDocs){await p.verification.deleteMany({where:{documentId:id}});await p.activityLog.deleteMany({where:{documentId:id}});await p.penugasanLog.deleteMany({where:{target:{startsWith:id+':'}}});const children=await p.document.findMany({where:{parentId:id},select:{id:true}});for(const child of children)await p.document.delete({where:{id:child.id}});await p.document.delete({where:{id}});}

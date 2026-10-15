@@ -10,7 +10,10 @@ const uploadsDir = fileURLToPath(new URL('../uploads/', import.meta.url));
 
 function routesFor(doc, canView = true) {
   const routes = new Map();
-  const app = { get: (route, ...handlers) => routes.set(route, handlers.at(-1)) };
+  const app = {
+    get: (route, ...handlers) => routes.set(route, handlers.at(-1)),
+    post: (route, ...handlers) => routes.set(`POST ${route}`, handlers.at(-1))
+  };
   const prisma = { document: { findUnique: async () => doc } };
   registerExportRoutes(app, prisma, () => {}, async () => ({ canView }));
   return routes;
@@ -87,4 +90,24 @@ test('review refuses missing source and denies unassigned users without template
  ]){
   const response=responseMock();await routesFor(doc,canView).get('/api/documents/:id/source-preview')({params:{id:doc.id},currentUser:{}},response);assert.equal(response.statusCode,status);
  }
+});
+
+test('archive preview and export do not expose documents outside Final status', async () => {
+  const doc = { id: 'archive-non-final', status: 'Disetujui Bapperida' };
+  const routes = routesFor(doc);
+  const response = responseMock();
+  await routes.get('/api/archives/:id/preview')({
+    params: { id: doc.id },
+    currentUser: { roleKodes: ['super_admin'] }
+  }, response);
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.body.error, 'Arsip Final tidak ditemukan');
+
+  const exportResponse = responseMock();
+  await routes.get('/api/archives/:id/export/:format')({
+    params: { id: doc.id, format: 'pdf' },
+    currentUser: { roleKodes: ['super_admin'] }
+  }, exportResponse);
+  assert.equal(exportResponse.statusCode, 404);
+  assert.equal(exportResponse.body.error, 'Arsip Final tidak ditemukan');
 });

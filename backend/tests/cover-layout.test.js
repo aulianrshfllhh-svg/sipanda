@@ -27,6 +27,7 @@ test('cover variants use official OPD identity, year range, and empty address wi
  assert.equal(coverDetails(document('Renja Perubahan'),settings).title,'PERUBAHAN RENCANA KERJA (RENJA)');
  assert.equal(coverDetails(document('Renstra Murni','2025'),settings).yearLine,'TAHUN 2025-2029');
  assert.equal(coverDetails(document('RKPD Murni'),settings).middle,'KABUPATEN CIREBON');
+ assert.equal(coverDetails(document('Evaluasi RKPD Triwulan'),settings).title,'EVALUASI RKPD TRIWULAN');
  assert.equal(coverDetails(document('RPJMD','2025',{periodeMulai:'2025',periodeAkhir:'2029'}),settings).yearLine,'TAHUN 2025-2029');
  const noAddress=coverHtml(document('Renja Murni'),{...settings,opd:{...settings.opd,alamat:''}});
  assert.doesNotMatch(noAddress,/Alamat OPD belum diisi|\[/);

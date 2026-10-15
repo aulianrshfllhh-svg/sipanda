@@ -1,4 +1,4 @@
-# Lampiran dari dokumen Renja yang diunggah
+﻿# Format Lampiran Perbup/Kepbup dari dokumen Renja yang diunggah
 
 Lampiran untuk sumber PDF/DOCX memakai berkas induk, bukan rekonstruksi dari `DocumentSection`. Dokumen yang dibuat dengan template tetap memakai renderer template.
 

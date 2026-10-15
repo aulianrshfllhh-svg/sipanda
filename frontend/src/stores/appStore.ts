@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
-import type { User, UserPreferences, DocumentItem, OPD, ActivityLog, MonitoringItem, PlanningComplianceReport, AppNotification } from '../types';
+import type { User, UserPreferences, DocumentItem, OPD, ActivityLog, MonitoringItem, PlanningComplianceReport, AppNotification, VerificationSummary } from '../types';
 import { apiFetch } from '../lib/api';
+import { isPreviewDemo, previewDocuments, previewOpds, previewUsers, readPreviewUser } from '../lib/preview-demo';
 
 const currentCalendarYear = () => new Date().getFullYear();
 const defaultPreferences: UserPreferences = {
@@ -60,6 +61,7 @@ export const useAppStore = defineStore('app', {
     monitoringReport: null as PlanningComplianceReport | null,
     monitoringRequestId: 0,
     notifications: [] as AppNotification[],
+    verificationSummary: null as VerificationSummary | null,
     loading: false,
     toasts: [] as Toast[],
     showCreateModal: false,
@@ -136,6 +138,9 @@ export const useAppStore = defineStore('app', {
       }
       this.selectedTahun = year;
       localStorage.setItem('sipanda_selected_tahun', year);
+      if (this.isBapperida) {
+        this.fetchVerificationSummary(year);
+      }
     },
 
     defaultDocumentYear(jenis: string) {
@@ -153,7 +158,33 @@ export const useAppStore = defineStore('app', {
       }, 4000);
     },
 
+    async fetchVerificationSummary(tahun?: string) {
+      if (!this.isBapperida) return null;
+      try {
+        const t = tahun || this.selectedTahun;
+        const res = await apiFetch(`/api/admin/verification-summary?tahun=${t}`);
+        if (res.ok) {
+          const data: VerificationSummary = await res.json();
+          this.verificationSummary = data;
+          return data;
+        }
+      } catch (err) {
+        console.error('Failed to fetch verification summary:', err);
+      }
+      return null;
+    },
+
     async fetchCurrentUser() {
+      if (isPreviewDemo) {
+        const demoUser = readPreviewUser();
+        if (demoUser) {
+          this.currentUser = demoUser;
+          this.availableUsers = previewUsers;
+          this.loadPreferences(demoUser.id);
+          this.isAuthenticated = true;
+          return;
+        }
+      }
       try {
         const token = localStorage.getItem('sipanda_token');
         const res = await apiFetch('/api/auth/me', {
@@ -167,6 +198,9 @@ export const useAppStore = defineStore('app', {
           this.isAuthenticated = true;
           if (!localStorage.getItem('sipanda_token') && data.user) {
             localStorage.setItem('sipanda_token', 'session-token');
+          }
+          if (this.isBapperida) {
+            this.fetchVerificationSummary();
           }
         } else if (res.status === 401) {
           this.logout();
@@ -197,6 +231,9 @@ export const useAppStore = defineStore('app', {
           }
           this.addToast(`Beralih ke: ${data.user.name} (${data.user.roleLabel})`, 'info');
           await this.fetchDocuments();
+          if (this.isBapperida) {
+            await this.fetchVerificationSummary();
+          }
         } else {
           const errData = await res.json().catch(() => ({}));
           this.addToast(errData.error || 'Gagal beralih pengguna', 'error');
@@ -209,6 +246,10 @@ export const useAppStore = defineStore('app', {
     },
 
     async fetchOpds() {
+      if (isPreviewDemo) {
+        this.opds = previewOpds;
+        return;
+      }
       try {
         const res = await fetch('/api/opds');
         if (res.ok) {
@@ -220,11 +261,20 @@ export const useAppStore = defineStore('app', {
     },
 
     async fetchDocuments() {
+      if (isPreviewDemo) {
+        this.documents = this.currentUser?.role === 'opd'
+          ? previewDocuments.filter(document => document.opdId === this.currentUser?.opdId)
+          : previewDocuments;
+        return;
+      }
       try {
         this.loading = true;
         const res = await apiFetch('/api/documents');
         if (res.ok) {
           this.documents = await res.json();
+        }
+        if (this.isBapperida) {
+          this.fetchVerificationSummary();
         }
       } catch (err) {
         console.error('Failed to fetch documents:', err);
@@ -428,6 +478,7 @@ export const useAppStore = defineStore('app', {
       this.opds = [];
       this.activities = [];
       this.availableUsers = [];
+      this.verificationSummary = null;
       localStorage.removeItem('sipanda_token');
       localStorage.removeItem('sipanda_user');
     },
@@ -446,11 +497,14 @@ export const useAppStore = defineStore('app', {
         }
         this.addToast(
           status === 'Disetujui'
-            ? 'Dokumen disetujui. Dokumen induk dan lampiran otomatis masuk ke Arsip pada Monitoring OPD.'
+            ? 'Dokumen Disetujui Bapperida. Super Admin dapat memfinalkan dokumen untuk memasukkannya ke Arsip OPD.'
             : 'Catatan revisi berhasil dikirimkan ke OPD bersangkutan.',
           status === 'Disetujui' ? 'success' : 'info'
         );
         await this.fetchDocuments();
+        if (this.isBapperida) {
+          await this.fetchVerificationSummary();
+        }
         return data.document;
       } catch (err: any) {
         this.addToast(err.message, 'error');

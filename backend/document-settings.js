@@ -1,4 +1,4 @@
-﻿export const EMPTY_PROFILE={nama:'',alamat:'',jabatan:'',pimpinan:'',pangkat:'',nip:'',tempat:'Sumber',bulan:''};
+export const EMPTY_PROFILE={nama:'',alamat:'',jabatan:'',pimpinan:'',pangkat:'',nip:'',tempat:'Sumber',bulan:''};
 export function validateCoverLogo(value){
   if(typeof value!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value))return 'Logo harus berupa PNG transparan.';
   const encoded=value.slice('data:image/png;base64,'.length);
@@ -18,7 +18,7 @@ export async function documentSettings(prisma,opdId) {
     prisma.opd.findUnique({where:{id:opdId}}),
   ]);
   return {
-    global:{bupati:'IMRON',sekretarisDaerah:'',logoData:'',...(global?.data||{})},
+    global:{bupati:'IMRON',sekretarisDaerah:'',logoData:'',batasHariVerifikasi:3,...(global?.data||{})},
     opd:{...EMPTY_PROFILE,...(profile?.data||{})},
     opdRecord:opd?{id:opd.id,nama:opd.nama,nomorLampiran:opd.nomorLampiran}:{id:opdId,nama:'',nomorLampiran:''}
   };
@@ -48,7 +48,8 @@ export function registerSettingsRoutes(app,prisma,auth,isSuperAdmin) {
         const logoData=String(req.body.global.logoData||'');
         const logoError=logoData?validateCoverLogo(logoData):'';
         if(logoError)return res.status(400).json({error:logoError});
-        const global={bupati:String(req.body.global.bupati||'').slice(0,200),sekretarisDaerah:String(req.body.global.sekretarisDaerah||'').slice(0,200),logoData};
+        const batasHariVerifikasi = req.body.global.batasHariVerifikasi !== undefined ? Number(req.body.global.batasHariVerifikasi) : 3;
+        const global={bupati:String(req.body.global.bupati||'').slice(0,200),sekretarisDaerah:String(req.body.global.sekretarisDaerah||'').slice(0,200),logoData,batasHariVerifikasi};
         operations.push(prisma.documentSettings.upsert({where:{id:'global'},create:{id:'global',data:global},update:{data:global}}));
       }
       await prisma.$transaction(operations);

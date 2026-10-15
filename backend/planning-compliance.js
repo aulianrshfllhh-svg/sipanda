@@ -1,5 +1,5 @@
 const RENSTRA_TYPES = ['Renstra', 'Renstra Murni', 'Renstra Perubahan'];
-const SUBMITTED_STATUSES = ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui'];
+const SUBMITTED_STATUSES = ['Menunggu Verifikasi', 'Perlu Revisi', 'Disetujui Bapperida', 'Final'];
 const LAMPIRAN_TYPES = [
   'Lampiran Perbup Renja',
   'Lampiran Kepbup Perubahan Renja',
@@ -20,6 +20,8 @@ function isRenstraActiveInYear(document, year) {
 }
 
 function approvedItem(key, label, year, document) {
+  const lastVerification=document?.verifications?.[0];
+  const submittedLog=document?.statusLogs?.[0];
   return {
     key,
     label,
@@ -27,8 +29,11 @@ function approvedItem(key, label, year, document) {
     documentId: document?.id || null,
     documentType: document?.jenis || null,
     status: document?.status || 'Belum Ada',
+    verifierName:lastVerification?.verifier?.nama||null,
+    lastUpdatedAt:document?.updatedAt||null,
+    submittedAt:submittedLog?.waktu||null,
     tteNumber: document?.tteNumber || null,
-    approved: document?.status === 'Disetujui'
+    approved: ['Disetujui Bapperida','Final'].includes(document?.status)
   };
 }
 
@@ -40,10 +45,10 @@ function annexItem(key, label, year, parent, annexes, expectedType) {
       && document.isLampiranOtomatis
     ))
     : null;
-  const approved = parent?.status === 'Disetujui' && annex?.status === 'Disetujui';
+  const approved = ['Disetujui Bapperida','Final'].includes(parent?.status) && ['Disetujui Bapperida','Final'].includes(annex?.status);
   const status = !parent ? 'Belum Ada'
     : !annex ? 'Belum Terbit'
-    : annex.status === 'Disetujui' && parent.status !== 'Disetujui' ? 'Tidak Sinkron'
+    : ['Disetujui Bapperida','Final'].includes(annex.status) && !['Disetujui Bapperida','Final'].includes(parent.status) ? 'Tidak Sinkron'
     : annex.status;
   return {
     key,
@@ -58,7 +63,8 @@ function annexItem(key, label, year, parent, annexes, expectedType) {
   };
 }
 
-export function buildPlanningCompliance(opds, parentDocuments, annexDocuments, targetYear) {
+const DEFAULT_REQUIRED_KEYS = ['renjaMurni', 'lampiranRenjaMurni', 'renjaPerubahan', 'lampiranRenjaPerubahan'];
+export function buildPlanningCompliance(opds, parentDocuments, annexDocuments, targetYear, requiredKeys = DEFAULT_REQUIRED_KEYS) {
   const year = Number(targetYear);
   const nextYear = year + 1;
 
@@ -76,12 +82,13 @@ export function buildPlanningCompliance(opds, parentDocuments, annexDocuments, t
 
     // Kewajiban tahunan terdiri dari dua Renja dan masing-masing lampirannya.
     // Renstra berada pada siklus lima tahunan sehingga tidak masuk denominator tahunan.
-    const requiredItems = [
+    const availableItems = [
       approvedItem('renjaMurni', 'Renja Murni', nextYear, renjaMurni),
       annexItem('lampiranRenjaMurni', 'Lampiran Renja Murni', nextYear, renjaMurni, annexDocuments, 'Lampiran Perbup Renja'),
       approvedItem('renjaPerubahan', 'Renja Perubahan', year, renjaPerubahan),
       annexItem('lampiranRenjaPerubahan', 'Lampiran Renja Perubahan', year, renjaPerubahan, annexDocuments, 'Lampiran Kepbup Perubahan Renja')
     ];
+    const requiredItems = availableItems.filter(item => requiredKeys.includes(item.key));
     const completedCount = requiredItems.filter(item => item.approved).length;
     const createdCount = requiredItems.filter(item => item.documentId).length;
     const submittedCount = requiredItems.filter(item => item.documentId &&
@@ -130,8 +137,32 @@ export function buildPlanningCompliance(opds, parentDocuments, annexDocuments, t
 }
 
 export function registerPlanningComplianceRoute(app, prisma, authMiddleware, isSuperAdmin) {
+  const defaultMonitoringSettings = () => ({tahunAnggaranAktif:String(new Date().getFullYear()),batasWaktu:null,requiredItems:DEFAULT_REQUIRED_KEYS});
+  async function getMonitoringSettings(){
+    const saved=await prisma.documentSettings.findUnique({where:{id:'global'},select:{data:true}});
+    return {...defaultMonitoringSettings(),...(saved?.data?.monitoring||{})};
+  }
+  app.get('/api/monitoring/settings',authMiddleware,async(_req,res)=>{
+    try{res.json(await getMonitoringSettings());}catch(error){console.error('Failed to read monitoring settings:',error);res.status(500).json({error:'Gagal membaca pengaturan monitoring'});}
+  });
+  app.put('/api/monitoring/settings',authMiddleware,async(req,res)=>{
+    if(!isSuperAdmin(req.currentUser))return res.status(403).json({error:'Hanya Super Admin yang dapat mengubah Pengaturan Monitoring'});
+    const year=String(req.body?.tahunAnggaranAktif||'');
+    const rawKeys=req.body?.requiredItems;
+    if(!/^\d{4}$/.test(year)||!Array.isArray(rawKeys)||!rawKeys.length||rawKeys.some(key=>!DEFAULT_REQUIRED_KEYS.includes(key))||new Set(rawKeys).size!==rawKeys.length)return res.status(400).json({error:'Tahun aktif atau daftar dokumen wajib tidak valid'});
+    const deadline=req.body?.batasWaktu?new Date(req.body.batasWaktu):null;
+    if(deadline&&!Number.isFinite(deadline.getTime()))return res.status(400).json({error:'Batas waktu tidak valid'});
+    try{
+      const current=await prisma.documentSettings.findUnique({where:{id:'global'},select:{data:true}});
+      const data={...(current?.data||{}),monitoring:{tahunAnggaranAktif:year,requiredItems:rawKeys,batasWaktu:deadline?.toISOString()||null}};
+      await prisma.documentSettings.upsert({where:{id:'global'},create:{id:'global',data},update:{data}});
+      res.json(data.monitoring);
+    }catch(error){console.error('Failed to save monitoring settings:',error);res.status(500).json({error:'Gagal menyimpan Pengaturan Monitoring'});}
+  });
   app.get('/api/stats/monitoring', authMiddleware, async (req, res) => {
-    const year = typeof req.query.tahun === 'string' ? req.query.tahun : String(new Date().getFullYear());
+    let settings;
+    try{settings=await getMonitoringSettings();}catch{return res.status(500).json({error:'Gagal membaca pengaturan monitoring'});}
+    const year = typeof req.query.tahun === 'string' ? req.query.tahun : settings.tahunAnggaranAktif;
     if (!/^\d{4}$/.test(year) || Number(year) < 1000 || Number(year) >= 9999) {
       return res.status(400).json({ error: 'Tahun monitoring harus berupa tahun empat digit yang valid' });
     }
@@ -175,7 +206,9 @@ export function registerPlanningComplianceRoute(app, prisma, authMiddleware, isS
         orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         select: {
           id: true, opdId: true, jenis: true, tahun: true, status: true,
-          regulation: true, tteNumber: true, updatedAt: true, createdAt: true
+          regulation: true, tteNumber: true, updatedAt: true, createdAt: true,
+          verifications:{orderBy:{createdAt:'desc'},take:1,select:{verifier:{select:{nama:true}}}},
+          statusLogs:{where:{ke:'Menunggu Verifikasi'},orderBy:{waktu:'desc'},take:1,select:{waktu:true}}
         }
       }) : [];
       const parentIds = parentDocuments.map(document => document.id);
@@ -191,7 +224,8 @@ export function registerPlanningComplianceRoute(app, prisma, authMiddleware, isS
         }
       }) : [];
 
-      res.json(buildPlanningCompliance(opds, parentDocuments, annexDocuments, targetYear));
+      const report=buildPlanningCompliance(opds,parentDocuments,annexDocuments,targetYear,settings.requiredItems);
+      res.json({...report,batasWaktu:settings.batasWaktu});
     } catch (error) {
       console.error('Failed to load planning compliance monitoring:', error);
       res.status(500).json({ error: 'Gagal mengambil monitoring kepatuhan OPD' });

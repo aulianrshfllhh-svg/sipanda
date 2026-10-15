@@ -15,9 +15,20 @@ try {
   const roles = [
     { id: 'role-test-opd', kode: 'opd', label: 'Perangkat Daerah (test)' },
     { id: 'role-test-staff', kode: 'staf_bapperida', label: 'Staf Bapperida (test)' },
-    { id: 'role-test-admin', kode: 'super_admin', label: 'Super Admin (test)' }
+    { id: 'role-test-admin', kode: 'super_admin', label: 'Super Admin (test)' },
+    { id: 'role-test-rkpd-author', kode: 'penyusun_rkpd', label: 'Penyusun RKPD (test)' }
   ];
   await prisma.role.createMany({ data: roles });
+  await prisma.opd.create({
+    data: {
+      id: 'bapperida',
+      kode: 'BAPPERIDA',
+      nama: 'Badan Perencanaan Pembangunan Daerah Uji',
+      singkatan: 'Bapperida',
+      nomorUrut: 0,
+      nomorLampiran: 'I'
+    }
+  });
   await prisma.opd.create({
     data: {
       id: 'opd-test',
@@ -34,6 +45,7 @@ try {
     { id: 'user-test-opd', username: 'test-opd', nama: 'Pengguna OPD Uji', opdId: 'opd-test', roleIds: ['role-test-opd'] },
     { id: 'user-test-staff', username: 'test-staff', nama: 'Verifikator Uji', opdId: null, roleIds: ['role-test-staff'] },
     { id: 'user-test-admin', username: 'test-admin', nama: 'Admin Uji', opdId: null, roleIds: ['role-test-admin'] },
+    { id: 'user-test-rkpd-author', username: 'test-rkpd-author', nama: 'Penyusun RKPD Uji', opdId: null, roleIds: ['role-test-rkpd-author'] },
     { id: 'user-test-dual', username: 'test-dual', nama: 'Pengguna Peran Ganda Uji', opdId: 'opd-test', roleIds: ['role-test-opd', 'role-test-staff'] },
     { id: 'user-test-inactive', username: 'test-inactive', nama: 'Akun Nonaktif Uji', opdId: 'opd-test', roleIds: ['role-test-opd'], isActive: false }
   ];

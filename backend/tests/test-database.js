@@ -53,6 +53,15 @@ export function resetAndSeedTestDatabase() {
     throw new Error(`Reset database test gagal (${reason}, kode ${setup.status ?? 'tidak tersedia'}); seed tidak dijalankan.`);
   }
 
+  // These generated columns and their unique key are deliberately MySQL-only and absent from schema.prisma.
+  const activeSlotMigration = path.join(backendDirectory, 'prisma', 'migrations', '202610110002_evaluation_active_unique', 'migration.sql');
+  const activeSlot = spawnSync(process.execPath, [
+    prismaCli, 'db', 'execute', '--schema', path.join(backendDirectory, 'prisma', 'schema.prisma'), '--file', activeSlotMigration
+  ], { cwd: backendDirectory, env: environment, encoding: 'utf8', windowsHide: true });
+  if (activeSlot.error || activeSlot.status !== 0) {
+    throw new Error(`Pemasangan pengaman slot evaluasi pada database test gagal (kode ${activeSlot.status ?? 'tidak tersedia'}).`);
+  }
+
   const seed = spawnSync(process.execPath, [
     path.join(testsDirectory, 'seed-test-data.js')
   ], { cwd: backendDirectory, env: environment, encoding: 'utf8', windowsHide: true });

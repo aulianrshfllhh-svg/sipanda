@@ -47,6 +47,7 @@ model User {
   penugasanBabRkpd       PenugasanBabRkpd[]
   penugasanLog           PenugasanLog[]
   documents              Document[]              @relation("DocumentCreator")
+  editedSections         DocumentSection[]        @relation("SectionLastEditor")
   verifications          Verification[]
   sentNotifications      Notification[]
 
@@ -163,6 +164,9 @@ model Document {
   subJudul              String?   @db.VarChar(300) @map("sub_judul")
   cara                  String    @default("template") @db.VarChar(20)
   status                String    @default("Draft") @db.VarChar(50)
+  finalizedAt           DateTime? @map("finalized_at")
+  finalizedBy           String?   @map("finalized_by") @db.VarChar(191)
+  finalSnapshot         Json?     @map("final_snapshot")
   catatanRevisi         String?   @db.Text @map("catatan_revisi")
   tteNumber             String?   @db.VarChar(100) @map("tte_number")
   filePath              String?   @db.VarChar(255) @map("file_path")
@@ -185,12 +189,47 @@ model Document {
   attachments    Attachment[]
   penugasanBab   PenugasanBabRkpd[]
   activities     ActivityLog[]
+  statusLogs     DocumentStatusLog[]
 
   @@index([opdId])
   @@index([jenis])
   @@index([tahun])
   @@index([status])
   @@map("documents")
+}
+
+model DocumentStatusLog {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id") @db.VarChar(191)
+  dari       String?  @db.VarChar(50)
+  ke         String   @db.VarChar(50)
+  oleh       String   @db.VarChar(191)
+  alasan     String?  @db.Text
+  perubahan Json?
+  waktu      DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  @@index([documentId, waktu])
+  @@map("document_status_logs")
+}
+
+model EvaluasiTriwulan {
+  id             String   @id @default(cuid())
+  jenis          String   @db.VarChar(20)
+  opdId          String?  @map("opd_id") @db.VarChar(100)
+  tahun          String   @db.VarChar(4)
+  triwulan       Int
+  judul          String?  @db.VarChar(255)
+  catatan        String?  @db.Text
+  filePath       String   @map("file_path") @db.VarChar(500)
+  namaFileAsli   String   @map("nama_file_asli") @db.VarChar(255)
+  mime           String   @db.VarChar(100)
+  ukuran         Int
+  versi          Int
+  aktif          Boolean  @default(true)
+  diunggahOleh   String   @map("diunggah_oleh") @db.VarChar(191)
+  diunggahPada   DateTime @default(now()) @map("diunggah_pada")
+  @@index([jenis, opdId, tahun, triwulan, aktif])
+  @@map("evaluasi_triwulan")
 }
 
 // ─────────────────────────────────────────────
@@ -233,8 +272,10 @@ model DocumentSection {
   isLocked    Boolean  @default(true) @map("is_locked")
   subsections Json
   updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id") @db.VarChar(191)
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation("SectionLastEditor", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@unique([documentId, babId])
   @@index([documentId])
@@ -271,6 +312,7 @@ model Verification {
   status         String   @db.VarChar(50)
   catatanRevisi  String?  @db.Text @map("catatan_revisi")
   tteNumber      String?  @db.VarChar(100) @map("tte_number")
+  verifikasiTahap Int     @default(1) @map("verifikasi_tahap")
   createdAt      DateTime @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id])

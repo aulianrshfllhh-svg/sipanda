@@ -157,7 +157,7 @@ describe('API autentikasi dan akses', () => {
         .send({ status: 'Disetujui' });
 
       expect(response.status).toBe(200);
-      expect(response.body.document.status).toBe('Disetujui');
+      expect(response.body.document.status).toBe('Disetujui Bapperida');
       expect(response.body.document.verifierName).toBe(staffUser.nama);
     } finally {
       await prisma.penugasanVerifikasi.deleteMany({ where: { userId: staffUser.id, opdId: 'opd-test', tahun: '2027' } });
@@ -287,6 +287,76 @@ describe('API autentikasi dan akses', () => {
     }
   });
 
+  it('membatasi antrean verifikasi pada penugasan staf di tahun yang dipilih', async () => {
+    const staff = await prisma.user.findUnique({ where: { username: 'test-staff' } });
+    if (!staff) throw new Error('test-staff not found');
+
+    const assignedOpdId = 'opd-verification-assigned';
+    const otherYearOpdId = 'opd-verification-other-year';
+    const assignedDocumentId = 'document-verification-assigned';
+    const otherYearDocumentId = 'document-verification-other-year';
+
+    await prisma.opd.createMany({
+      data: [
+        { id: assignedOpdId, kode: 'VERIFY1', nama: 'OPD Verifikasi Uji', singkatan: 'VERIFY1', nomorUrut: 20, nomorLampiran: '20' },
+        { id: otherYearOpdId, kode: 'VERIFY2', nama: 'OPD Tahun Lain Uji', singkatan: 'VERIFY2', nomorUrut: 21, nomorLampiran: '21' }
+      ]
+    });
+    await prisma.document.createMany({
+      data: [
+        {
+          id: assignedDocumentId,
+          kodeDoc: 'VERIFY-2026-001',
+          jenis: 'Renja Murni',
+          tahun: '2026',
+          judul: 'Dokumen OPD yang Ditugaskan',
+          status: 'Disetujui Bapperida',
+          opdId: assignedOpdId,
+          opdName: 'OPD Verifikasi Uji'
+        },
+        {
+          id: otherYearDocumentId,
+          kodeDoc: 'VERIFY-2026-002',
+          jenis: 'Renja Murni',
+          tahun: '2026',
+          judul: 'Dokumen OPD yang Ditugaskan pada Tahun Lain',
+          status: 'Disetujui Bapperida',
+          opdId: otherYearOpdId,
+          opdName: 'OPD Tahun Lain Uji'
+        }
+      ]
+    });
+    await prisma.penugasanVerifikasi.createMany({
+      data: [
+        { userId: staff.id, opdId: assignedOpdId, tahun: '2026', keterangan: 'Uji penugasan tahun aktif' },
+        { userId: staff.id, opdId: otherYearOpdId, tahun: '2027', keterangan: 'Uji penugasan tahun lain' }
+      ]
+    });
+
+    try {
+      const staffLogin = await login('test-staff');
+      const response = await request(api)
+        .get('/api/admin/verification-summary?tahun=2026')
+        .set('Authorization', `Bearer ${staffLogin.body.token}`);
+      const timeline = await request(api)
+        .get(`/api/admin/verification-timeline/${otherYearDocumentId}`)
+        .set('Authorization', `Bearer ${staffLogin.body.token}`);
+      const invalidYear = await request(api)
+        .get('/api/admin/verification-summary?tahun=202')
+        .set('Authorization', `Bearer ${staffLogin.body.token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.antreanVerifikasiFinal.map(document => document.id)).toContain(assignedDocumentId);
+      expect(response.body.antreanVerifikasiFinal.map(document => document.id)).not.toContain(otherYearDocumentId);
+      expect(timeline.status).toBe(403);
+      expect(invalidYear.status).toBe(400);
+    } finally {
+      await prisma.penugasanVerifikasi.deleteMany({ where: { userId: staff.id, opdId: { in: [assignedOpdId, otherYearOpdId] } } });
+      await prisma.document.deleteMany({ where: { id: { in: [assignedDocumentId, otherYearDocumentId] } } });
+      await prisma.opd.deleteMany({ where: { id: { in: [assignedOpdId, otherYearOpdId] } } });
+    }
+  });
+
   it('menolak persetujuan langsung dari Draft dan mewajibkan catatan revisi', async () => {
     const staff = await login('test-staff');
     const directApproval = await request(api)
@@ -322,10 +392,16 @@ describe('API autentikasi dan akses', () => {
         .post('/api/documents/document-test/verify')
         .set('Authorization', `Bearer ${staff.body.token}`)
         .send({ status: 'Perlu Revisi', catatanRevisi: 'Mohon lengkapi indikator kinerja.' });
+      const documentList = await request(api)
+        .get('/api/documents')
+        .set('Authorization', `Bearer ${staff.body.token}`);
+      const processedDocument = documentList.body.find(document => document.id === 'document-test');
 
       expect(response.status).toBe(200);
       expect(response.body.document.status).toBe('Perlu Revisi');
       expect(response.body.document.catatanRevisi).toBe('Mohon lengkapi indikator kinerja.');
+      expect(response.body.document.verifierName).toBe(staffUser.nama);
+      expect(processedDocument.verifierName).toBe(staffUser.nama);
     } finally {
       await prisma.penugasanVerifikasi.deleteMany({
         where: { userId: staffUser.id, opdId: 'opd-test', tahun: '2027' }

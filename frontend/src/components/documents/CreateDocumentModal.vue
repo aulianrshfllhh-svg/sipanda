@@ -1,23 +1,25 @@
 <template>
-  <div v-if="store.showCreateModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+  <div v-if="store.showCreateModal" class="fixed inset-0 z-50 flex min-h-full items-start justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:items-center sm:p-5">
+    <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150 sm:rounded-3xl">
       <!-- Modal Header -->
-      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-        <div>
-          <h2 class="text-lg font-bold text-slate-900">Buat Dokumen Perencanaan Baru</h2>
-          <p class="text-xs text-slate-500">Pilih jenis dokumen, tahun anggaran, dan metode penyusunan</p>
+      <div class="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+        <div class="min-w-0">
+          <h2 class="text-base font-bold text-slate-900 sm:text-lg">Buat Dokumen Perencanaan Baru</h2>
+          <p class="mt-1 text-xs text-slate-500">Pilih jenis dokumen, tahun anggaran, dan metode penyusunan</p>
         </div>
         <button
           @click="closeModal"
-          class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+          aria-label="Tutup dialog"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800"
         >
           <X class="w-4 h-4" />
         </button>
       </div>
 
       <!-- Form Body -->
-      <form @submit.prevent="handleSubmit" class="p-6 space-y-5">
-        <p v-if="selectedCara==='template'" class="rounded-lg p-3 text-xs" :class="activeTemplate ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-800'">
+      <form @submit.prevent="handleSubmit" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+        <p v-if="selectedCara==='template'" class="rounded-xl px-3 py-2 text-xs leading-5" :class="activeTemplate ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-800'">
           {{ loadingTemplate ? 'Memeriksa template tahun anggaran?' : activeTemplate ? `Template: ${activeTemplate.nama} ? versi ${activeTemplate.versi}. Dokumen mempertahankan versi ini.` : `Belum ada template aktif untuk ${selectedJenis} tahun ${selectedTahun}. Pilih tahun lain atau hubungi Super Admin.` }}
         </p>
         <!-- 1. Jenis Dokumen -->
@@ -25,55 +27,47 @@
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
             1. Jenis Dokumen Perencanaan <span class="text-red-500">*</span>
           </label>
-          <div class="grid grid-cols-2 gap-2" :class="store.isBapperida ? 'sm:grid-cols-3' : 'sm:grid-cols-2'">
-            <div
-              v-for="item in docTypes"
-              :key="item.id"
-              @click="selectedJenis = item.id"
-              class="p-3 rounded-2xl border-2 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 text-center"
-              :class="selectedJenis === item.id ? 'border-blue-600 bg-blue-50/40 text-blue-900 shadow-sm' : 'border-slate-200 hover:border-slate-300 bg-white'"
-            >
-              <component :is="item.icon" class="w-5 h-5" :class="selectedJenis === item.id ? 'text-blue-600' : 'text-slate-400'" />
-              <div class="font-bold text-xs leading-tight">{{ item.label }}</div>
-            </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <section v-for="group in documentGroups" :key="group.label" class="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <h3 class="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">{{ group.label }}</h3>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="item in group.options"
+                  :key="`${item.id}-${item.quarter || ''}`"
+                  type="button"
+                  @click="selectDocumentChoice(item)"
+                  class="flex min-h-10 items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold leading-tight transition-all sm:text-xs"
+                  :class="isDocumentChoiceSelected(item) ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-200' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50'"
+                >
+                  <component :is="item.icon" class="h-4 w-4 shrink-0" :class="isDocumentChoiceSelected(item) ? 'text-blue-700' : 'text-slate-500'" />
+                  <span>{{ item.label }}</span>
+                </button>
+              </div>
+            </section>
           </div>
         </div>
 
-        <!-- 2. Perangkat Daerah (if Admin) & Tahun Anggaran -->
-        <div class="grid grid-cols-2 gap-4">
-          <div v-if="store.isBapperida && !isInternalDocument">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Perangkat Daerah (OPD) Pengusul
-            </label>
-            <select
-              v-model="selectedOpdId"
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs text-slate-800 font-medium outline-none"
-            >
-              <option value="" disabled>Pilih OPD yang ditugaskan</option>
-              <option v-for="opd in selectableOpds" :key="opd.id" :value="opd.id">
-                {{ opd.nama }}
-              </option>
-            </select>
-          </div>
-
-          <div :class="store.isBapperida && !isInternalDocument ? '' : 'col-span-2'">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <!-- 2. Tahun Anggaran -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div :class="selectedJenis.startsWith('Renstra') ? '' : 'sm:col-span-2'">
+            <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-700">
               Tahun Anggaran (T.A.) <span class="text-red-500">*</span>
             </label>
             <select
               v-model="selectedTahun"
-              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs text-slate-800 font-bold outline-none"
+              :disabled="store.isOpd && (selectedJenis === 'Renja Murni' || selectedJenis === 'Renja Perubahan')"
+              class="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             >
               <option v-for="yr in store.availableYears" :key="yr" :value="yr">
                 T.A. {{ yr }}
               </option>
             </select>
           </div>
-          <label v-if="selectedJenis.startsWith('Renstra')" class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+          <label v-if="selectedJenis.startsWith('Renstra')" class="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
             Periode berakhir <span class="text-red-500">*</span>
             <select
               v-model="selectedPeriodeAkhir"
-              class="block w-full mt-2 px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs text-slate-800 font-bold outline-none"
+              class="mt-1.5 block h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
             >
               <option v-for="yr in store.availableYears.filter(year => year >= selectedTahun)" :key="yr" :value="yr">
                 {{ yr }}
@@ -83,18 +77,18 @@
         </div>
 
         <!-- 3. Metode Penyusunan Dokumen (Cara A vs Cara B) -->
-        <div>
+        <div v-if="!isRkpdEvaluation">
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-            2. Metode Penyusunan Dokumen <span class="text-red-500">*</span>
+            3. Metode Penyusunan Dokumen <span class="text-red-500">*</span>
           </label>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <!-- Cara A: Template Baku Sistem -->
             <div
               @click="selectedCara = 'template'"
-              class="p-4 rounded-2xl border-2 transition-all cursor-pointer relative"
-              :class="selectedCara === 'template' ? 'border-blue-600 bg-blue-50/40 text-blue-900 shadow-sm' : 'border-slate-200 hover:border-slate-300 bg-white'"
+              class="relative cursor-pointer rounded-xl border-2 p-3 transition-all sm:p-3.5"
+              :class="selectedCara === 'template' ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm ring-2 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'"
             >
-              <div class="flex items-center justify-between mb-2">
+              <div class="mb-2 flex items-center justify-between gap-2">
                 <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
                   A
                 </div>
@@ -103,7 +97,7 @@
                 </span>
               </div>
               <div class="font-bold text-sm text-slate-800">Pakai Template Sistem</div>
-              <p class="text-xs text-slate-500 mt-1">
+              <p class="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">
                 Format baku Permendagri 86/2017: Bab terkunci, cover, daftar isi, penomoran tabel & gambar otomatis.
               </p>
             </div>
@@ -111,8 +105,8 @@
             <!-- Cara B: Upload Mandiri -->
             <div
               @click="selectedCara = 'upload'"
-              class="p-4 rounded-2xl border-2 transition-all cursor-pointer relative"
-              :class="selectedCara === 'upload' ? 'border-blue-600 bg-blue-50/40 text-blue-900 shadow-sm' : 'border-slate-200 hover:border-slate-300 bg-white'"
+              class="relative cursor-pointer rounded-xl border-2 p-3 transition-all sm:p-3.5"
+              :class="selectedCara === 'upload' ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm ring-2 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'"
             >
               <div class="flex items-center justify-between mb-2">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
@@ -123,15 +117,20 @@
                 </span>
               </div>
               <div class="font-bold text-sm text-slate-800">Upload File Mandiri</div>
-              <p class="text-xs text-slate-500 mt-1">
+              <p class="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">
                 Unggah dokumen eksternal buatan sendiri dalam format PDF atau DOCX dengan metadata lengkap.
               </p>
             </div>
           </div>
         </div>
 
+        <div v-else class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p class="font-semibold">Evaluasi RKPD · Triwulan {{ quarterLabels[(selectedEvaluationQuarter || 1) - 1] }}</p>
+          <p class="mt-1 text-xs leading-5 text-blue-800">Evaluasi RKPD disusun di editor dokumen. Triwulan terpilih akan dicantumkan pada judul naskah.</p>
+        </div>
+
         <!-- If Cara B (Upload) -->
-        <div v-if="selectedCara === 'upload'" class="p-4 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50">
+        <div v-if="selectedCara === 'upload'" class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-3 text-center sm:p-4">
           <input
             type="file"
             ref="fileInputRef"
@@ -141,7 +140,7 @@
             id="file-upload"
           />
           <label for="file-upload" class="cursor-pointer block">
-            <UploadCloud class="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <UploadCloud class="mx-auto mb-1.5 h-7 w-7 text-blue-600" />
             <span class="text-xs font-bold text-blue-600">Klik untuk memilih file</span>
             <span class="text-xs text-slate-500"> atau seret berkas ke sini</span>
             <div class="text-[11px] text-slate-400 mt-1">Mendukung format PDF atau DOCX (Maksimal 25MB)</div>
@@ -158,30 +157,31 @@
 
         <!-- Custom Title (Optional) -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+          <label class="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-700">
             Judul Naskah Dokumen
           </label>
           <input
             v-model="customJudul"
             type="text"
             :placeholder="defaultJudulPlaceholder"
-            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs text-slate-800 font-medium outline-none"
+            class="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
           />
+        </div>
         </div>
 
         <!-- Modal Actions -->
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <div class="sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3.5 sm:gap-3 sm:px-6">
           <button
             type="button"
             @click="closeModal"
-            class="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            class="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Batal
           </button>
           <button
             type="submit"
             :disabled="loading || (!isInternalDocument && store.isBapperida && !targetOpdId)"
-            class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-blue-500/20 flex items-center gap-2 transition-colors"
+            class="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
           >
             <Sparkles class="w-4 h-4" />
             <span>{{ selectedCara === 'template' ? 'Buka Editor Dokumen' : 'Simpan & Unggah Dokumen' }}</span>
@@ -212,6 +212,7 @@ const store = useAppStore();
 const router = useRouter();
 
 const selectedJenis = ref<DocumentType>('Renja Murni');
+const selectedEvaluationQuarter = ref<number | null>(null);
 const selectedTahun = ref<string>(store.defaultDocumentYear('Renja Murni'));
 const selectedPeriodeAkhir = ref<string>(String(Number(selectedTahun.value) + 4));
 const selectedCara = ref<DocumentMethod>('template');
@@ -225,7 +226,11 @@ const loadingTemplate = ref(false);
 let templateRequest = 0;
 watch([selectedJenis, selectedTahun, () => store.showCreateModal], async () => {
   const request = ++templateRequest;
-  if (!store.showCreateModal) return;
+  if (!store.showCreateModal) {
+    loadingTemplate.value = false;
+    activeTemplate.value = null;
+    return;
+  }
   loadingTemplate.value=true;activeTemplate.value=null;
   try {
     const res=await apiFetch(`/api/templates?jenis=${encodeURIComponent(selectedJenis.value)}&tahun=${selectedTahun.value}`);
@@ -246,7 +251,7 @@ watch(selectedJenis, jenis => {
   }
 });
 
-const isInternalDocument = computed(() => ['RKPD', 'RKPD Murni', 'RKPD Perubahan', 'RPJMD'].includes(selectedJenis.value));
+const isInternalDocument = computed(() => ['RKPD', 'RKPD Murni', 'RKPD Perubahan', 'Evaluasi RKPD Triwulan', 'RPJMD'].includes(selectedJenis.value));
 
 const opdDocTypes = [
   { id: 'Renja Murni' as DocumentType, label: 'Renja Murni', icon: FileText },
@@ -256,18 +261,60 @@ const opdDocTypes = [
 ];
 
 const bapperidaDocTypes = [
-  { id: 'Renja Murni' as DocumentType, label: 'Renja OPD Murni', icon: FileText },
-  { id: 'Renja Perubahan' as DocumentType, label: 'Renja OPD Perubahan', icon: Layers },
-  { id: 'Renstra Murni' as DocumentType, label: 'Renstra OPD Murni', icon: FileSpreadsheet },
-  { id: 'Renstra Perubahan' as DocumentType, label: 'Renstra OPD Perubahan', icon: RefreshCw },
+  { id: 'Renja Murni' as DocumentType, label: 'Renja Murni', icon: FileText },
+  { id: 'Renja Perubahan' as DocumentType, label: 'Renja Perubahan', icon: Layers },
+  { id: 'Renstra Murni' as DocumentType, label: 'Renstra Murni', icon: FileSpreadsheet },
+  { id: 'Renstra Perubahan' as DocumentType, label: 'Renstra Perubahan', icon: RefreshCw },
   { id: 'RKPD Murni' as DocumentType, label: 'RKPD Murni', icon: FileSpreadsheet },
   { id: 'RKPD Perubahan' as DocumentType, label: 'RKPD Perubahan', icon: RefreshCw },
+  { id: 'Evaluasi RKPD Triwulan' as DocumentType, label: 'Evaluasi RKPD Triwulan', icon: FileSpreadsheet },
   { id: 'RPJMD' as DocumentType, label: 'RPJMD', icon: FileText }
 ];
 
 const docTypes = computed(() => store.isSuperAdmin
   ? bapperidaDocTypes
   : store.isStaff ? bapperidaDocTypes.filter(item => item.id.startsWith('Renja')) : opdDocTypes);
+
+const quarterLabels = ['I', 'II', 'III', 'IV'];
+const documentGroups = computed(() => {
+  const byId = (id: DocumentType) => docTypes.value.find(item => item.id === id);
+  const regularGroup = (label: string, ids: DocumentType[]) => ({
+    label,
+    options: ids.flatMap(id => {
+      const item = byId(id);
+      return item ? [{ ...item, quarter: null as number | null }] : [];
+    })
+  });
+  return [
+    regularGroup('Renja', ['Renja Murni', 'Renja Perubahan']),
+    regularGroup('Renstra', ['Renstra Murni', 'Renstra Perubahan']),
+    regularGroup('RKPD', ['RKPD Murni', 'RKPD Perubahan']),
+    ...(store.isSuperAdmin ? [{
+      label: 'Evaluasi RKPD',
+      options: quarterLabels.map((label, index) => ({
+        id: 'Evaluasi RKPD Triwulan' as DocumentType,
+        label: `Triwulan ${label}`,
+        icon: FileSpreadsheet,
+        quarter: index + 1
+      }))
+    }] : []),
+    regularGroup('RPJMD', ['RPJMD'])
+  ].filter(group => group.options.length);
+});
+const isRkpdEvaluation = computed(() => selectedJenis.value === 'Evaluasi RKPD Triwulan');
+
+function selectDocumentChoice(item: { id: DocumentType; quarter: number | null }) {
+  selectedJenis.value = item.id;
+  selectedEvaluationQuarter.value = item.quarter;
+  if (item.quarter) {
+    selectedCara.value = 'template';
+    selectedFile.value = null;
+  }
+}
+
+function isDocumentChoiceSelected(item: { id: DocumentType; quarter: number | null }) {
+  return selectedJenis.value === item.id && selectedEvaluationQuarter.value === item.quarter;
+}
 
 const selectableOpds = computed(() => store.isStaff
   ? assignedOpds.value
@@ -293,6 +340,7 @@ watch(() => store.currentUser?.role, async () => {
 watch(() => store.showCreateModal, async isOpen => {
   if (!isOpen) return;
   selectedJenis.value = 'Renja Murni';
+  selectedEvaluationQuarter.value = null;
   selectedTahun.value = store.defaultDocumentYear('Renja Murni');
   selectedPeriodeAkhir.value = String(Number(selectedTahun.value) + 4);
   selectedCara.value = 'template';
@@ -317,6 +365,9 @@ const targetOpdId = computed(() => isInternalDocument.value
 
 const defaultJudulPlaceholder = computed(() => {
   const opd = store.opds.find(o => o.id === targetOpdId.value)?.nama || store.currentOpdName;
+  if (isRkpdEvaluation.value && selectedEvaluationQuarter.value) {
+    return `Evaluasi RKPD Triwulan ${quarterLabels[selectedEvaluationQuarter.value - 1]} ${selectedTahun.value}`;
+  }
   return `${selectedJenis.value} ${selectedTahun.value} - ${opd}`;
 });
 
@@ -337,6 +388,11 @@ const handleSubmit = async () => {
   try {
     loading.value = true;
     let newDoc;
+
+    if (isRkpdEvaluation.value && !selectedEvaluationQuarter.value) {
+      store.addToast('Pilih triwulan evaluasi terlebih dahulu.', 'error');
+      return;
+    }
 
     if (selectedCara.value === 'upload') {
       if (!selectedFile.value) {

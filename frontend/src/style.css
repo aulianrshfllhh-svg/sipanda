@@ -81,6 +81,15 @@ html.dark [class~="bg-slate-50/90"] {
   background-color: #303c4d !important;
 }
 
+html.dark [class~="bg-slate-50/70"],
+html.dark [class~="bg-slate-50/80"] {
+  background-color: #2b3748 !important;
+}
+
+html.dark [class~="bg-slate-100/80"] {
+  background-color: #242f40 !important;
+}
+
 html.dark [class~="bg-slate-50/50"],
 html.dark [class~="bg-slate-50/40"] {
   background-color: #2b3748 !important;
@@ -298,7 +307,18 @@ html.dark .planning-page [role="tablist"] {
   border: 1px solid #3e4a5b;
 }
 
+html.dark .archive-page [role="tablist"],
+html.dark .archive-page .archive-source-control {
+  background-color: #242f40 !important;
+  border: 1px solid #3e4a5b;
+}
+
 html.dark .planning-page [role="tab"][aria-selected="true"] {
+  background-color: #496894 !important;
+  color: #fff !important;
+}
+
+html.dark .archive-page [role="tab"][aria-selected="true"] {
   background-color: #496894 !important;
   color: #fff !important;
 }
@@ -308,12 +328,17 @@ html.dark .planning-cards > div {
 }
 
 html.dark .planning-page thead tr,
-html.dark .planning-page .bg-indigo-50 {
+html.dark .planning-page .bg-indigo-50,
+html.dark .archive-page thead tr {
   background-color: #2b3748 !important;
 }
 
 html.dark .planning-page tbody tr:hover {
   background-color: #303c4d;
+}
+
+html.dark .archive-page [class~="bg-slate-100/80"] {
+  background-color: #242f40 !important;
 }
 
 html.dark .a4-page {
@@ -685,4 +710,3 @@ html.dark ::-webkit-scrollbar-thumb {
 .editor-card-footer { margin-top: auto; }
 .editor-page-guide { position: absolute; left: 0; right: 0; border-top: 1px dashed #94a3b8; height: 0; pointer-events: none; z-index: 1; }
 .editor-page-guide span { position: absolute; right: 0; top: -14px; background: #e2e8f0; color: #475569; padding: 1px 5px; font: 10px sans-serif; }
-

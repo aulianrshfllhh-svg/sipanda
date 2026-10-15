@@ -28,7 +28,7 @@ export async function syncLampiranInTransaction(tx, parentDoc, force = false) {
   };
 
   const existing = await tx.document.findUnique({ where: { kodeDoc } });
-  if (existing?.status === 'Disetujui' && !force) return existing;
+  if (existing?.status === 'Final' && !force) return existing;
 
   const data = {
       jenis,

@@ -1,6 +1,8 @@
 node_modules/
 .env
 uploads/
+private-uploads/
+private-finalized/
 db.json
 *.log
 .env.test

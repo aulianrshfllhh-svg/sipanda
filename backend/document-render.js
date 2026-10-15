@@ -83,7 +83,8 @@ export function coverDetails(doc,settings){
  const type=String(doc.jenis||'').toLocaleLowerCase('id-ID'),name=settings.opdRecord?.nama||settings.opd?.nama||doc.opdName||'',year=String(doc.tahun||''),reg=doc.regulation||{};
  const period=year.includes('-')?year:`${reg.periodeMulai||year}-${reg.periodeAkhir||Number(reg.periodeMulai||year)+4}`;
  let title='RENCANA KERJA (RENJA)',middle=name.toLocaleUpperCase('id-ID'),yearLine=`TAHUN ${year}`;
- if(type.includes('rkpd')){title=`${type.includes('perubahan')?'PERUBAHAN ':''}RENCANA KERJA PEMERINTAH DAERAH (RKPD)`;middle='KABUPATEN CIREBON';}
+ if(type.includes('evaluasi rkpd')){title='EVALUASI RKPD TRIWULAN';middle='KABUPATEN CIREBON';}
+ else if(type.includes('rkpd')){title=`${type.includes('perubahan')?'PERUBAHAN ':''}RENCANA KERJA PEMERINTAH DAERAH (RKPD)`;middle='KABUPATEN CIREBON';}
  else if(type.includes('rpjmd')){title='RENCANA PEMBANGUNAN JANGKA MENENGAH DAERAH (RPJMD)';middle='KABUPATEN CIREBON';yearLine=`TAHUN ${period}`;}
  else if(type.includes('renstra')){title=`${type.includes('perubahan')?'PERUBAHAN ':''}RENCANA STRATEGIS (RENSTRA)`;yearLine=`TAHUN ${period}`;}
  else if(type.includes('perubahan'))title='PERUBAHAN RENCANA KERJA (RENJA)';
